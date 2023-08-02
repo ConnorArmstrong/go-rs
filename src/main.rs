@@ -1,8 +1,10 @@
 #![allow(unused, dead_code, non_camel_case_types)]
 
 use std::collections::HashSet;
+use coordinate::Coordinate;
 use group::Group;
 
+mod coordinate;
 mod group;
 mod tree;
 //
@@ -11,56 +13,12 @@ pub const BOARD_SIZE: usize = 19; // for now
 
 fn main() {
     println!("Hello, world!");
-    let board = Board::new(BOARD_SIZE);
+    let mut board = Board::new(BOARD_SIZE);
 }
 
 type position = (usize, usize); // (x, y)
 type index = usize; // index of the 1d vector
 
-
-#[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]
-pub enum Coordinate { // to make it easier to handle the position of the board and transfer between the two formats
-    Position(position),
-    Index(index),
-}
-
-impl Coordinate {
-    pub fn into(&self) -> Coordinate {
-        // convert position to index, or index to position
-        match self {
-            Coordinate::Index(value) => {
-                // return position
-               Coordinate::Position((value / BOARD_SIZE, value % BOARD_SIZE))
-            }
-            Coordinate::Position((x, y)) => {
-                // return index
-                Coordinate::Index(x * BOARD_SIZE + y)
-            }
-        }
-    }
-
-    pub fn into_index(&self) -> Coordinate {
-        match self {
-            Coordinate::Index(value) => {*self},
-            Coordinate::Position((x, y)) => {self.into()}
-        }
-    }
-
-    pub fn new_index(index: usize) -> Option<Coordinate> {
-        // returns an index if it is inbounds
-        if (index < (BOARD_SIZE * BOARD_SIZE)) {
-           return Some(Coordinate::Index(index))
-        }
-        return None
-    }
-
-    pub fn new_position(position: position) -> Option<Coordinate> {
-        if (position.0 < BOARD_SIZE && position.1 < BOARD_SIZE) {
-            return Some(Coordinate::Position(position))
-        }
-        return None
-    }
-}
 
 pub enum Turn {
     Move(Coordinate), // move a stone (coordinate could either be the position or index)
@@ -100,6 +58,8 @@ pub struct Board {
     size: usize, // most typically 19x19 - will start smaller for ai
     grid: Vec<Colour>, // 1D vector that stores the colours of the stones on the board
     groups: Vec<Group>, // list of groups on the board
+    white_points: usize, // how many stones white has captured
+    black_points: usize, // how many stones black has captured
 }
 
 impl Board {
@@ -108,6 +68,8 @@ impl Board {
             size,
             grid: vec![Colour::Empty; size * size],
             groups: Vec::new(),
+            white_points: 0,
+            black_points: 0,
         }
     }
 
@@ -120,12 +82,54 @@ impl Board {
             Coordinate::Index(value) => { self.grid[value]}
         }
     }
+
+    pub fn add_stone(&mut self, coordinate: Coordinate, colour: Colour) {
+        // adds a stone to the position WITHOUT CHECKING FOR VALIDITY
+
+    }
+
+    pub fn remove_group(&mut self, group: Group) {
+        // removes a group from the board
+        // this is used when a group is captured
+        let positions = group.get_positions();
+        let mut count = 0;
+
+        for position in positions {
+            let index = position.get_index();
+            self.grid[index] = Colour::Empty;
+            count += 1;
+        }
+
+        match group.get_colour() {
+            Colour::Black => self.white_points += count,
+            Colour::White => self.black_points += count,
+            _ => {},
+        }
+    }
+
+    pub fn get_adjacent_indices(&self, position: Coordinate) -> Vec<Coordinate> {
+        let (x, y) = position.get_position();
+        let mut indices = Vec::new();
+
+        if x > 0 {
+            indices.push(Coordinate::Index((x - 1) * self.size + y)); // Top
+        }
+        if y > 0 {
+            indices.push(Coordinate::Index(x * self.size + y - 1)); // Left
+        }
+        if x < self.size - 1 {
+            indices.push(Coordinate::Index((x + 1) * self.size + y)); // Bottom
+        }
+        if y < self.size - 1 {
+            indices.push(Coordinate::Index(x * self.size + y + 1)); // Right
+        }
+        indices
+    }
 }
 
 pub struct Game { // the actual game logic required
     board: Board, 
     turn: Colour, // swapping Black -> White -> Black etc
     visited_positions: HashSet<Board>, // keep track of visited positions for ko's -> SEE ZOBRIST HASHING!
-    white_points: usize, // how many stones white has captured
-    black_points: usize, // how many stones black has captured
+
 }

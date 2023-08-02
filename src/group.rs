@@ -1,4 +1,5 @@
-use crate::{Colour, Coordinate};
+use crate::{Colour, coordinate::{self, Coordinate}, Board};
+use std::{collections::HashSet, hash::Hash};
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Group {
@@ -28,5 +29,56 @@ impl Group {
             liberties: 4, // updated later
             points: vec![position], // potentially updated later
         }
+    }
+
+    pub fn calculate_liberties(&mut self, board: &Board) {
+        let mut liberties: HashSet<Coordinate> = HashSet::new();
+
+        for position in &self.points {
+            for adjacent in board.get_adjacent_indices(*position)  {
+                if (board.get(adjacent) == Colour::Empty) {
+                    liberties.insert(adjacent);
+                }
+            }
+        }
+        self.liberties = liberties.len()
+    }
+
+    pub fn get_positions(&self) -> &Vec<Coordinate> {
+        &self.points
+    }
+
+    pub fn get_colour(&self) -> Colour {
+        self.colour
+    }
+
+    pub fn contains(&self, position: Coordinate, colour: Colour) -> bool {
+        // if the group contains the a stone of specified colour at a certain colour
+        // might be useful for checking a merged group
+        if (self.colour == colour) {
+            if (self.points.contains(&position)) {
+                return true;
+            }
+        }
+        false
+    }
+
+    pub fn merge_groups(groups: Vec<Group>, board: &Board) -> Group {
+        let colour = groups[0].colour;
+        let mut points: HashSet<Coordinate> = HashSet::new();
+        for group in groups {
+            points.extend(group.points);
+        }
+
+        let mut group = Group {
+            colour,
+            liberties: 0,
+            points: points.into_iter().collect(),
+        };
+        group.calculate_liberties(board);
+
+        assert_ne!(group.liberties, 0); // this would be a problem
+
+        group
     }
 }
