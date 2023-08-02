@@ -7,3 +7,10 @@ target/debug/incremental/go_rs-yz7esn5rem0c/s-gnef75di7y-1xh5ekw-2p5nxggrmf5l1/2
 *.pdb
 *.exe
 *.json
+target/debug/
+target/debug/.fingerprint/go-rs-968a832f44b60ea5/dep-bin-go-rs
+*.d
+*.exe
+*.pdb
+*.exe
+*.pdb
