@@ -4,6 +4,7 @@ use std::collections::HashSet;
 use group::Group;
 
 mod group;
+mod tree;
 //
 
 pub const BOARD_SIZE: usize = 19; // for now
@@ -15,7 +16,6 @@ fn main() {
 
 type position = (usize, usize); // (x, y)
 type index = usize; // index of the 1d vector
-
 
 
 #[derive(Clone, Copy, Debug, PartialEq, Hash, Eq)]

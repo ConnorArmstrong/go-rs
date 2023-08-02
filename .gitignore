@@ -1,2 +1,9 @@
-
+.vscode/
 *.lock
+target/
+*.o
+target/debug/incremental/go_rs-yz7esn5rem0c/s-gnef75di7y-1xh5ekw-2p5nxggrmf5l1/2zxsfjbhm43xkhs3.o
+*.lock
+*.pdb
+*.exe
+*.json

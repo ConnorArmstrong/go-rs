@@ -25,8 +25,8 @@ impl Group {
         // creates a simple group with a single stone that is then checked
         Group {
             colour,
-            liberties: 4,
-            points: vec![position],
+            liberties: 4, // updated later
+            points: vec![position], // potentially updated later
         }
     }
 }
