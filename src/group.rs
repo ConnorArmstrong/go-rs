@@ -1,12 +1,12 @@
-use crate::{Colour, coordinate::{self, Coordinate}, Board};
-use std::{collections::HashSet, hash::Hash};
+use crate::{Colour, coordinate::Coordinate, Board};
+use std::collections::HashSet;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Group {
     // struct to store groups of stones on the board for ease of calculation
     colour: Colour, // colour of the group
     liberties: usize, // amount of liberties the group has
-    points: Vec<Coordinate>, // the locations of the stones in the group
+    points: HashSet<Coordinate>, // the locations of the stones in the group
 }
 
 /*
@@ -27,58 +27,97 @@ impl Group {
         Group {
             colour,
             liberties: 4, // updated later
-            points: vec![position], // potentially updated later
+            points: HashSet::from_iter(vec![position].into_iter()), // potentially updated later
         }
     }
 
-    pub fn calculate_liberties(&mut self, board: &Board) {
-        let mut liberties: HashSet<Coordinate> = HashSet::new();
+    pub fn calculate_liberties(&mut self, board_grid: &Vec<Colour>) {
+        let mut liberties1: HashSet<Coordinate> = HashSet::new();
 
         for position in &self.points {
-            for adjacent in board.get_adjacent_indices(*position)  {
-                if (board.get(adjacent) == Colour::Empty) {
-                    liberties.insert(adjacent);
+            for adjacent in Board::get_adjacent_indices(*position)  {
+                if board_grid[adjacent.get_index()] == Colour::Empty {
+                    liberties1.insert(adjacent);
                 }
             }
         }
-        self.liberties = liberties.len()
+        let x = liberties1.len();
+
+        println!("{liberties1:?}, {x:} liberties");
+        
+        self.liberties = liberties1.len();
+        assert_eq!(self.liberties, x);
     }
 
-    pub fn get_positions(&self) -> &Vec<Coordinate> {
-        &self.points
+    pub fn get_positions(&self) -> Vec<&Coordinate> {
+        //convert the points hashset into a vector:
+        Vec::from_iter(self.points.iter())
     }
 
     pub fn get_colour(&self) -> Colour {
         self.colour
     }
 
+    pub fn get_liberties(&self) -> &usize {
+        &self.liberties
+    }
+
+    pub fn decrease_liberties(&mut self) {
+        self.liberties -= 1;
+    }
+
+    pub fn decrease_and_get_liberties(&mut self) -> usize {
+        self.liberties -= 1;
+        self.liberties
+    }
+
     pub fn contains(&self, position: Coordinate, colour: Colour) -> bool {
         // if the group contains the a stone of specified colour at a certain colour
         // might be useful for checking a merged group
-        if (self.colour == colour) {
-            if (self.points.contains(&position)) {
+        if self.colour == colour {
+            if self.points.contains(&position) {
                 return true;
             }
         }
         false
     }
 
-    pub fn merge_groups(groups: Vec<Group>, board: &Board) -> Group {
+    pub fn merge_groups(groups: &Vec<Group>) -> Group {
         let colour = groups[0].colour;
         let mut points: HashSet<Coordinate> = HashSet::new();
+
         for group in groups {
-            points.extend(group.points);
+            for point in group.get_positions() {
+                points.insert(*point);
+            }
         }
 
-        let mut group = Group {
+        let group = Group {
             colour,
             liberties: 0,
             points: points.into_iter().collect(),
         };
-        group.calculate_liberties(board);
-
-        assert_ne!(group.liberties, 0); // this would be a problem
-
+        //group.calculate_liberties(board);
+        // CURRENTLY COMMENTED OUT AS THIS IS NOW DONE IN THE BOARD::ADD_STONE() FUNCTION
+        //assert!(0 != group.liberties); // this would be a problem
+        
         group
+    }
+
+    pub fn find_mergeable_groups(&self, board: &mut Board) -> Vec<Group> {
+        let location = *self.points.iter().next().expect("No points in group");
+        let positions = Board::get_adjacent_indices(location);
+        let mut groups: Vec<Group> = vec![self.clone()];
+
+        for position in positions {
+            if board.get(position) == self.colour { 
+                // if the adjacent position is the same colour as the current group
+                if let Some(group) = board.find_group(position, self.colour) {
+                    groups.push(group.clone());
+                }
+            }
+        }
+
+        groups
     }
 }

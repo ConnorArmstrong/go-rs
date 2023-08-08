@@ -1,4 +1,5 @@
-use crate::{BOARD_SIZE, position, index};
+use crate::board::BOARD_SIZE;
+use crate::board::{index, position};
 use std::hash::Hash;
 
 
@@ -25,28 +26,28 @@ impl Coordinate {
 
     pub fn into_index(&self) -> Coordinate {
         match self {
-            Coordinate::Index(value) => {*self},
-            Coordinate::Position((x, y)) => {self.into()}
+            Coordinate::Index(_value) => {*self},
+            Coordinate::Position((_x, _y)) => {self.into()}
         }
     }
 
     pub fn into_position(&self) -> Coordinate {
         match self {
-            Coordinate::Index(value) => {self.into()},
-            Coordinate::Position((x, y)) => {*self}
+            Coordinate::Index(_value) => {self.into()},
+            Coordinate::Position((_x, _y)) => {*self}
         }
     }
 
     pub fn new_index(index: usize) -> Option<Coordinate> {
         // returns an index if it is inbounds
-        if (index < (BOARD_SIZE * BOARD_SIZE)) {
+        if index < (BOARD_SIZE * BOARD_SIZE) {
            return Some(Coordinate::Index(index))
         }
         return None
     }
 
     pub fn new_position(position: position) -> Option<Coordinate> {
-        if (position.0 < BOARD_SIZE && position.1 < BOARD_SIZE) {
+        if position.0 < BOARD_SIZE && position.1 < BOARD_SIZE {
             return Some(Coordinate::Position(position))
         }
         return None
@@ -70,14 +71,15 @@ impl Coordinate {
 
 }
 
-
+// position and index are equivalent if they point to the same location in a 1d vector
 impl PartialEq for Coordinate {
     fn eq(&self, other: &Self) -> bool {
-        return (self.get_index() == other.get_index())
+        return self.get_index() == other.get_index()
     }
 }
 
 impl Eq for Coordinate {}
+
 
 impl Hash for Coordinate {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
