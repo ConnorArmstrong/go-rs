@@ -2,7 +2,7 @@
 
 use std::collections::HashSet;
 
-use crate::{board::{Board, Colour}, coordinate::Coordinate};
+use crate::{board::{Board, Colour, BOARD_SIZE}, coordinate::Coordinate};
 
 pub enum Turn {
     Move(Coordinate), // move a stone (coordinate could either be the position or index)
@@ -17,9 +17,20 @@ pub struct Move {
     turn: Turn, // the actual move that is played
 }
 
-
 pub struct Game { // the actual game logic required
     board: Board, 
     turn: Colour, // swapping Black -> White -> Black etc
-    visited_positions: HashSet<Board>, // keep track of visited positions for ko's -> SEE ZOBRIST HASHING!
+    visited_positions: HashSet<Board>, // keep track of visited positions for ko's -> SEE ZOBRIST HASHING! -- might also just need to store HashSet<Vec<Colour>> potentially.
 }
+
+
+impl Game {
+    pub fn new() -> Self {
+        Game {
+            board: Board::new(BOARD_SIZE),
+            turn: Colour::Black,
+            visited_positions: HashSet::new(),
+        }
+    }
+}
+

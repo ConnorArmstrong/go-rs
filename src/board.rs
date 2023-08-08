@@ -30,7 +30,7 @@ impl Colour {
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct Board {
-    size: usize, // most typically 19x19 - will start smaller for ai
+    pub size: usize, // most typically 19x19 - will start smaller for ai
     grid: Vec<Colour>, // 1D vector that stores the colours of the stones on the board
     pub groups: Vec<Group>, // list of groups on the board
     white_points: usize, // how many stones white has captured
@@ -54,7 +54,15 @@ impl Board {
                 println!("Error: Position not supported");
                 Colour::Empty
             }, // not reachable
-            Coordinate::Index(value) => { self.grid[value]}
+            Coordinate::Index(value) => { 
+                let colour = self.grid[value];
+                match colour {
+                    Colour::Black => return Colour::Black,
+                    Colour::White => return Colour::White,
+                    Colour::Empty => return Colour::Empty,
+                }
+            
+            }
         }
     }
 
@@ -73,7 +81,7 @@ impl Board {
             let mut groups_to_remove: Vec<Group> = Vec::new();
             for group_position in adjacent_groups_positions {
                 if self.get(group_position) != colour {
-                    let group = self.find_group(group_position, colour);
+                    let group = self.find_group(group_position, colour.swap_turn());
                     if let Some(group) = group {
                         let count = group.decrease_and_get_liberties();
 
@@ -110,14 +118,17 @@ impl Board {
     pub fn remove_group(&mut self, group: Group) {
         // removes a group from the board
         // this is used when a group is captured
-        let positions = group.get_positions();
+        let points = group.get_points();
+        println!("POINTS TO BE REMOVED: {:?}", points);
         let mut count = 0;
 
-        for position in positions {
+        for position in points {
             let index = position.get_index();
             self.grid[index] = Colour::Empty;
             count += 1;
         }
+
+        self.groups.retain(|x| x != &group);
 
         match group.get_colour() {
             Colour::Black => self.white_points += count,

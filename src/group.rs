@@ -54,6 +54,10 @@ impl Group {
         Vec::from_iter(self.points.iter())
     }
 
+    pub fn get_points(&self) -> &HashSet<Coordinate>  {
+        &self.points
+    }
+
     pub fn get_colour(&self) -> Colour {
         self.colour
     }
