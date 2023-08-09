@@ -44,7 +44,7 @@ fn main() {
             Some(Input::KeyUp) => pointer_pos.1 = (pointer_pos.1 as isize - 1).max(0) as usize,
             Some(Input::KeyDown) => pointer_pos.1 = (pointer_pos.1 + 1).min(BOARD_SIZE - 1),
             Some(Input::Character(' ')) => {board.add_stone(Coordinate::Position(pointer_pos), colour);
-                colour = colour.swap_turn();},
+                colour.swap_turn();},
             Some(Input::Character('q')) => break, // Exit loop if 'q' is pressed
             _ => {}
         }
