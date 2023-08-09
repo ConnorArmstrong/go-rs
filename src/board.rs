@@ -27,7 +27,6 @@ impl Colour {
     }
 }
 
-
 #[derive(Clone, Debug, PartialEq)]
 pub struct Board {
     pub size: usize, // most typically 19x19 - will start smaller for ai
@@ -69,7 +68,6 @@ impl Board {
     pub fn add_stone(&mut self, coordinate: Coordinate, colour: Colour) {
         // adds a stone to the position WITHOUT CHECKING FOR VALIDITY
 
-        
         if self.get(coordinate) == Colour::Empty { // can't place on a stone 
             let mut new_stone = Group::new(colour, coordinate); // 1.A new group is created
             self.grid[coordinate.get_index()] = colour; // 1.B the colour is added to the grid

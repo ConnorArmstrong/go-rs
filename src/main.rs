@@ -15,6 +15,8 @@ fn main() {
     board.add_stone(Coordinate::Position((10, 10)), Colour::Black);
     board.add_stone(Coordinate::Position((10, 11)), Colour::White);
     board.add_stone(Coordinate::Position((11, 11)), Colour::Black);
+
+    
     //board.display_board();
     
     for group in &board.groups {
@@ -33,6 +35,7 @@ fn main() {
     //window.getch();  // Wait for a key press
     //endwin();
     loop {
+        let mut colour: Colour = Colour::Black;
         window.clear(); // Clear previous frame
         print_board(&window, &board, &pointer_pos);
         match window.getch() {
@@ -40,11 +43,12 @@ fn main() {
             Some(Input::KeyLeft) => pointer_pos.0 = (pointer_pos.0 as isize - 1).max(0) as usize,
             Some(Input::KeyUp) => pointer_pos.1 = (pointer_pos.1 as isize - 1).max(0) as usize,
             Some(Input::KeyDown) => pointer_pos.1 = (pointer_pos.1 + 1).min(BOARD_SIZE - 1),
-            Some(Input::Character(' ')) => {board.add_stone(Coordinate::Position(pointer_pos), Colour::Black);
-                                            println!("{:?}", board.groups.len())},
+            Some(Input::Character(' ')) => {board.add_stone(Coordinate::Position(pointer_pos), colour);
+                colour = colour.swap_turn();},
             Some(Input::Character('q')) => break, // Exit loop if 'q' is pressed
             _ => {}
         }
+        
     }
     
     endwin();
@@ -60,10 +64,10 @@ fn print_board(window: &Window, board: &Board, pointer_pos: &(usize, usize)) {
                 Colour::Black => window.addch('x'),
                 Colour::White => window.addch('o'),
             };
-            //window.addch(' ');
+            window.addch(' ');
         }
         window.addch('\n');
     }
-    window.mv(pointer_pos.1 as i32, pointer_pos.0 as i32);
+    window.mv(pointer_pos.1 as i32, (pointer_pos.0 * 2) as i32);
     window.refresh();
 }
