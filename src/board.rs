@@ -58,7 +58,7 @@ impl Board {
     pub fn get(&self, coordinate: Coordinate) -> Colour {
         match coordinate.into_index() {
             Coordinate::Position(_) => { 
-                println!("Error: Position not supported");
+                //println!("Error: Position not supported");
                 Colour::Empty
             }, // not reachable
             Coordinate::Index(value) => { 
@@ -125,7 +125,7 @@ impl Board {
         // removes a group from the board
         // this is used when a group is captured
         let points = group.get_points();
-        println!("POINTS TO BE REMOVED: {:?}", points);
+        //println!("POINTS TO BE REMOVED: {:?}", points);
         let mut count = 0;
 
         for position in points {

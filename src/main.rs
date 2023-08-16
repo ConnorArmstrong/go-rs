@@ -1,4 +1,5 @@
 #![allow(unused)]
+#![windows_subsystem = "windows"]
 
 use crate::board::{Board, BOARD_SIZE, Colour};
 use crate::coordinate::Coordinate;
@@ -11,7 +12,7 @@ mod game;
 mod graphics;
 
 fn main() {
-    graphics::run();
+    graphics::run().unwrap();
 }
 
 

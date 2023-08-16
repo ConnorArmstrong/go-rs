@@ -43,7 +43,7 @@ impl Group {
         }
         let x = liberties1.len();
 
-        println!("{liberties1:?}, {x:} liberties");
+        //println!("{liberties1:?}, {x:} liberties");
         
         self.liberties = liberties1.len();
         assert_eq!(self.liberties, x);
