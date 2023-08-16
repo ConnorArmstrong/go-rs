@@ -8,50 +8,10 @@ mod board;
 mod coordinate;
 mod group;
 mod game;
+mod graphics;
 
 fn main() {
-    println!("Hello, world!");
-    let mut board = Board::new(BOARD_SIZE);
-    board.add_stone(Coordinate::Position((10, 10)), Colour::Black);
-    board.add_stone(Coordinate::Position((10, 11)), Colour::White);
-    board.add_stone(Coordinate::Position((11, 11)), Colour::Black);
-
-    
-    //board.display_board();
-    
-    for group in &board.groups {
-        println!("{:?}", group.get_liberties());
-    }
-
-    let mut pointer_pos: (usize, usize) = (9, 9);
-
-    let window = initscr();
-    window.refresh();
-    window.keypad(true);
-    noecho();
-
-    print_board(&window, &board, &pointer_pos);
-
-    //window.getch();  // Wait for a key press
-    //endwin();
-    loop {
-        let mut colour: Colour = Colour::Black;
-        window.clear(); // Clear previous frame
-        print_board(&window, &board, &pointer_pos);
-        match window.getch() {
-            Some(Input::KeyRight) => pointer_pos.0 = (pointer_pos.0 + 1).min(BOARD_SIZE - 1),
-            Some(Input::KeyLeft) => pointer_pos.0 = (pointer_pos.0 as isize - 1).max(0) as usize,
-            Some(Input::KeyUp) => pointer_pos.1 = (pointer_pos.1 as isize - 1).max(0) as usize,
-            Some(Input::KeyDown) => pointer_pos.1 = (pointer_pos.1 + 1).min(BOARD_SIZE - 1),
-            Some(Input::Character(' ')) => {board.add_stone(Coordinate::Position(pointer_pos), colour);
-                colour.swap_turn();},
-            Some(Input::Character('q')) => break, // Exit loop if 'q' is pressed
-            _ => {}
-        }
-        
-    }
-    
-    endwin();
+    graphics::run();
 }
 
 
@@ -70,4 +30,48 @@ fn print_board(window: &Window, board: &Board, pointer_pos: &(usize, usize)) {
     }
     window.mv(pointer_pos.1 as i32, (pointer_pos.0 * 2) as i32);
     window.refresh();
+}
+
+pub fn run_printed() {
+    println!("Hello, world!");
+    let mut board = Board::new(BOARD_SIZE);
+    board.add_stone(Coordinate::Position((10, 10)), Colour::Black);
+    board.add_stone(Coordinate::Position((10, 11)), Colour::White);
+    board.add_stone(Coordinate::Position((11, 11)), Colour::Black);
+    
+    //board.display_board();
+    
+    for group in &board.groups {
+        println!("{:?}", group.get_liberties());
+    }
+
+    let mut pointer_pos: (usize, usize) = (9, 9);
+    let mut colour: Colour = Colour::Black;
+
+    let window = initscr();
+    window.refresh();
+    window.keypad(true);
+    noecho();
+
+    print_board(&window, &board, &pointer_pos);
+    
+    //window.getch();  // Wait for a key press
+    //endwin();
+    loop {
+        window.clear(); // Clear previous frame
+        print_board(&window, &board, &pointer_pos);
+        match window.getch() {
+            Some(Input::KeyRight) => pointer_pos.0 = (pointer_pos.0 + 1).min(BOARD_SIZE - 1),
+            Some(Input::KeyLeft) => pointer_pos.0 = (pointer_pos.0 as isize - 1).max(0) as usize,
+            Some(Input::KeyUp) => pointer_pos.1 = (pointer_pos.1 as isize - 1).max(0) as usize,
+            Some(Input::KeyDown) => pointer_pos.1 = (pointer_pos.1 + 1).min(BOARD_SIZE - 1),
+            Some(Input::Character(' ')) => {board.add_stone(Coordinate::Position(pointer_pos), colour);
+                colour = colour.swap_turn();
+                println!("NEW TURN.")},
+            Some(Input::Character('q')) => break, // Exit loop if 'q' is pressed
+            _ => {}
+        }
+    }
+    
+    endwin();
 }

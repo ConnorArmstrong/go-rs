@@ -25,6 +25,14 @@ impl Colour {
             Colour::Empty => Colour::Empty, // realistically shouldnt happen
         }
     }
+
+    pub fn get_string(&self) -> String {
+        match self {
+            Colour::Black => String::from("Black"),
+            Colour::White => String::from("White"),
+            Colour::Empty => String::from("Empty"),
+        }
+    }
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -160,6 +168,10 @@ impl Board {
         // replace the old groups.
         self.groups.retain(|x| !groups.contains(&x));
         self.groups.push(new_group);
+    }
+
+    pub fn get_grid(&self) -> &Vec<Colour> {
+        &self.grid
     }
 
     pub fn display_board(&self) {
