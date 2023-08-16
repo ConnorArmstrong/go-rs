@@ -106,6 +106,8 @@ impl Board {
             for i in 0..group_count {
                 self.groups[i].calculate_liberties(&self.grid);
             }
+
+            // NOTE: SUICIDE DOESNT REMOVE THE ORIGINAL STONE!
         }
     }
 
