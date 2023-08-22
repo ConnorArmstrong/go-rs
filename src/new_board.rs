@@ -49,15 +49,90 @@ impl NewBoard {
         });
     }
 
+    pub fn remove_groups(&mut self, groups: Vec<usize>) {
+        // removes the groups from the self.groups vector
+        for group_id in groups {
+            self.remove_group(self.group_map.get(&group_id).unwrap().clone());
+        }
+    }
+
     pub fn add_stone(&mut self, coordinate: Coordinate, colour: Colour) {
+        println!("Made it!");
         if !self.check_empty(coordinate) { // cannot place on a non-empty space
             return;
         }
+        // steps: 1 create new group and add stone. 2: merge groups if necessary. 3: update adjacent groups liberties. 4: update new_groups liberties. Remove groups when necessary
 
         // 1. create a new group and stone
         let mut new_group = NewGroup::new(self.group_counter, colour, coordinate);
         let ids = self.find_groups_to_merge(coordinate, colour); // get all groups that need to be merged
 
+        if ids.len() > 0 { // if there are groups to merge
+            let groups_to_merge = self.get_groups_to_merge(&new_group, ids.clone()); // get all groups that need to be merged, ids)
+            let new_group = NewGroup::merge_groups(self.group_counter, &groups_to_merge);
+
+            // remove old group from the internal group board
+            self.remove_groups(ids);
+
+            for coordinate in new_group.get_positions() {
+                self.groups[coordinate.get_index()] = Some(self.group_counter);
+            }
+
+
+        } else {
+            // no need to merge.
+            self.groups[coordinate.get_index()] = Some(self.group_counter);
+        }
+        self.group_map.insert(self.group_counter, new_group);
+        self.group_counter += 1;
+        self.reflect_group_to_board();
+
+
+        // 3. update adjacent groups liberties
+        // get list of adjacent opponant groups by finding the opposite colour to merge
+        let adjacent_groups = self.find_groups_to_merge(coordinate, colour.swap_turn());
+        self.recalculate_liberties(adjacent_groups.clone());
+        let groups_to_remove = self.check_liberties(adjacent_groups);
+        self.remove_groups(groups_to_remove);
+        
+
+        // 4. check new groups liberties.
+        println!("New Groups:");
+        for group in self.group_map.values() {
+            println!("Group: {:?}", group);
+        }
+
+        // TODO:
+        self.reflect_group_to_board();
+    }
+
+    pub fn recalculate_liberties(&mut self, groups: Vec<usize>) {
+        // step 3 of adding a stone - update adjacent groups liberties
+        for group_id in groups {
+            self.group_map.get_mut(&group_id).unwrap().calculate_liberties(&self.grid);
+        }
+    }
+    
+    pub fn check_liberties(&self, ids: Vec<usize>) -> Vec<usize> {
+        // return the groups that have 0 liberties
+        let mut groups = Vec::new();
+        for group_id in ids {
+            if self.group_map.get(&group_id).unwrap().get_liberties() < &((1 as usize)) { // if the group has 0 liberties - NOTE: cannot do if usize == 0
+                groups.push(group_id);
+            }
+        }
+
+        groups
+    }
+
+    pub fn reflect_group_to_board(&mut self) {
+        // iterate over the grid and make sure each value matches the groups
+        for (index, group_id) in self.groups.iter().enumerate() {
+            if let Some(id) = group_id {
+                let group = self.group_map.get(id).unwrap();
+                self.grid[index] = group.get_colour();
+            }
+        }
     }
 }
 
@@ -148,6 +223,17 @@ impl NewBoard {
         }
 
         id_set.into_iter().collect()
+    }
+
+    pub fn get_groups_to_merge<'a>(&'a self, initial_group: &'a NewGroup, ids: Vec<usize>) -> Vec<&'a NewGroup> {
+        // get a vector of the initial group + the surrounding groups to be merged
+        let mut groups: Vec<&NewGroup> = vec![&initial_group];
+
+        for id in ids {
+            groups.push(self.group_map.get(&id).unwrap());
+        }
+
+        groups
     }
 }
 

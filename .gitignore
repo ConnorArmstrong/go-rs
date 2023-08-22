@@ -29,3 +29,4 @@ target/debug/go_rs.pdb
 target/debug/go-rs.exe
 target/debug/deps/go_rs.exe
 *.exe
+*.json

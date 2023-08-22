@@ -2,10 +2,11 @@ use eframe::{egui, App, Frame, NativeOptions};
 use egui::{Rect, Id};
 use pancurses::reset_prog_mode;
 
-use crate::{board::{self, Board, Colour, position}, coordinate::Coordinate};
+use crate::{board::{self, Board, Colour}, coordinate::Coordinate};
+use crate::new_board::NewBoard;
 
 struct MyApp {
-    board: Board,
+    board: NewBoard,
     turn_to_play: Colour,
 }
 
@@ -111,7 +112,7 @@ impl App for MyApp {
 
 pub fn run() -> Result<(), eframe::Error> {
     let app = MyApp {
-        board: Board::new(19),
+        board: NewBoard::new(),
         turn_to_play: Colour::Black,
     };
 

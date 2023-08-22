@@ -1,5 +1,5 @@
 #![allow(unused)]
-#![windows_subsystem = "windows"]
+//#![windows_subsystem = "windows"]
 
 use crate::board::{Board, BOARD_SIZE, Colour};
 use crate::coordinate::Coordinate;
@@ -13,6 +13,7 @@ mod graphics;
 mod new_group;
 mod new_board;
 fn main() {
+    println!("running...");
     graphics::run().unwrap();
 }
 

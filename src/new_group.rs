@@ -89,7 +89,7 @@ impl NewGroup {
         return self.points.contains(coordinate) && self.colour == *colour;
     }
 
-    pub fn merge_groups(id: usize, groups: &Vec<&Group>) -> NewGroup {
+    pub fn merge_groups(id: usize, groups: &Vec<&NewGroup>) -> NewGroup {
         let total_points: HashSet<Coordinate> = groups.iter().flat_map(|group| group.get_points()).cloned().collect();
         let colour = groups[0].get_colour();
 
