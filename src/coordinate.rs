@@ -68,7 +68,6 @@ impl Coordinate {
             Coordinate::Position(value) => {value},
         }
     }
-
 }
 
 // position and index are equivalent if they point to the same location in a 1d vector
@@ -79,7 +78,6 @@ impl PartialEq for Coordinate {
 }
 
 impl Eq for Coordinate {}
-
 
 impl Hash for Coordinate {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {

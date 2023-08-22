@@ -10,7 +10,8 @@ mod coordinate;
 mod group;
 mod game;
 mod graphics;
-
+mod new_group;
+mod new_board;
 fn main() {
     graphics::run().unwrap();
 }

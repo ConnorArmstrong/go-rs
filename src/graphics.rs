@@ -1,5 +1,6 @@
 use eframe::{egui, App, Frame, NativeOptions};
 use egui::{Rect, Id};
+use pancurses::reset_prog_mode;
 
 use crate::{board::{self, Board, Colour, position}, coordinate::Coordinate};
 
@@ -61,8 +62,8 @@ impl App for MyApp {
                             j as f32 * cell_size + cell_size / 2.0,
                             i as f32 * cell_size + cell_size / 2.0,
                         );
-                        shapes.push(egui::Shape::circle_stroke(center, cell_size / 2.0, egui::Stroke::new(1.5, egui::Color32::BLACK))); // black outline
-                        shapes.push(egui::Shape::circle_filled(center, cell_size / 2.0, color));
+                        shapes.push(egui::Shape::circle_stroke(center, cell_size / 2.2, egui::Stroke::new(1.5, egui::Color32::BLACK))); // black outline
+                        shapes.push(egui::Shape::circle_filled(center, cell_size / 2.25, color));
                     }
                 }
                 //
@@ -83,9 +84,26 @@ impl App for MyApp {
                 let coords = Coordinate::Position((i, j));
 
                 // Now you can update the state of the board at the clicked cell (i, j):
-                self.board.add_stone(coords, self.turn_to_play);
-                self.turn_to_play = self.turn_to_play.swap_turn();
+                self.board.add_stone(coords, Colour::Black);
+                //self.turn_to_play = self.turn_to_play.swap_turn();
             }
+
+            if response.secondary_clicked() {
+                let y_pos = (response.interact_pointer_pos().unwrap().y - response.rect.min.y).max(0.0);
+                let x_pos = (response.interact_pointer_pos().unwrap().x - response.rect.min.x).max(0.0);
+   
+                let i = (y_pos / cell_size).floor() as usize;
+                let j = (x_pos / cell_size).floor() as usize;
+
+                println!("Clicked at position {} {}", i, j);
+            
+                let coords = Coordinate::Position((i, j));
+
+                // Now you can update the state of the board at the clicked cell (i, j):
+                self.board.add_stone(coords, Colour::White);
+            }
+
+            
             ui.heading(move_string);
         });
     }
