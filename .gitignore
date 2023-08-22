@@ -16,7 +16,6 @@ target/debug/.fingerprint/go-rs-968a832f44b60ea5/dep-bin-go-rs
 *.pdb
 *.pdb
 *.exe
-*.rs
 *.pdb
 *.exe
 *.d
@@ -29,3 +28,4 @@ target/debug/go-rs.d
 target/debug/go_rs.pdb
 target/debug/go-rs.exe
 target/debug/deps/go_rs.exe
+*.exe
