@@ -2,7 +2,7 @@ use eframe::{egui, App, Frame, NativeOptions};
 use egui::{Rect, Id};
 use pancurses::reset_prog_mode;
 
-use crate::{board::{self, Board, Colour}, coordinate::Coordinate};
+use crate::{board::{self, Colour}, coordinate::Coordinate};
 use crate::new_board::NewBoard;
 
 struct MyApp {
@@ -80,7 +80,7 @@ impl App for MyApp {
                 let i = (y_pos / cell_size).floor() as usize;
                 let j = (x_pos / cell_size).floor() as usize;
 
-                println!("Clicked at position {} {}", i, j);
+                println!("---    Clicked at position {} {}    ---", i, j);
             
                 let coords = Coordinate::Position((i, j));
 

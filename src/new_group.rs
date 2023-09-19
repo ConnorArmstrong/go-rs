@@ -36,7 +36,6 @@ impl NewGroup {
         }
     }
 
-
     pub fn check_liberties(&self, grid: &Vec<Colour>) -> bool {
         // returns true if there are more than 0 liberties
         let mut liberties: HashSet<Coordinate> = HashSet::new();
@@ -104,8 +103,6 @@ impl NewGroup {
     }
 }
 
-
-
 // easiest way to handle it assuming all goes well with my board implementation
 // as long as the id is always unique for each subsequent new group and i remove the old ones from
 // the board struct the id of the group is the only thing needed
@@ -120,5 +117,6 @@ impl Eq for NewGroup {}
 impl Hash for NewGroup {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
+        self.points.len().hash(state);
     }
 }
