@@ -1,17 +1,11 @@
-#![allow(non_camel_case_types)]
-
 use crate::coordinate::Coordinate;
-use crate::board::Colour;
+use crate::colour::Colour;
 use crate::new_group::NewGroup;
+use crate::fails::TurnErrors;
+use crate::new_game::BOARD_SIZE;
 use std::collections::{HashMap, HashSet};
 
-
-pub const BOARD_SIZE: usize = 19; // for now
-
-pub type position = (usize, usize); // (x, y)
-pub type index = usize; // index of the 1d vector
-
-
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NewBoard {
     grid: Vec<Colour>,
     group_map: HashMap<usize, NewGroup>, // maps each id to a group
@@ -58,28 +52,36 @@ impl NewBoard {
         }
     }
 
-    pub fn add_stone(&mut self, coordinate: Coordinate, colour: Colour) {
+    pub fn add_stone(&mut self, coordinate: Coordinate, colour: Colour) -> Result<(), TurnErrors> {
         
-        if !self.check_empty(coordinate) { // cannot place on a non-empty space
-            println!("Cannot place on a non-empty space");
-            return;
+        if coordinate.get_index() > BOARD_SIZE * BOARD_SIZE {
+            return Err(TurnErrors::OutofBounds);
         }
+
+        if !self.check_empty(coordinate) { // cannot place on a non-empty space
+            return Err(TurnErrors::AlreadyPlaced);
+        }
+
+        // check the board position hasnt been repeated either -- TODO
+
         // steps: 1 create new group and add stone. 2: merge groups if necessary. 3: update adjacent groups liberties. 4: update new_groups liberties. Remove groups when necessary
 
+        // store current struct info:
+        let original_state = self.clone(); // for rollback in case of invalid move
+
         // 1. create a new group and stone
+
+
         let new_group = NewGroup::new(self.group_counter, colour, coordinate);
 
         self.group_map.insert(self.group_counter, new_group.clone()); // this can get overwritten later.
         self.groups[coordinate.get_index()] = Some(self.group_counter); // changed later too
 
-
         let mut surrounding_groups = self.find_adjacent_groups(coordinate); // get all surrounding groups
-
 
         if surrounding_groups.len() > 0 { // there are now groups to merge
             surrounding_groups.push(&new_group);
             let merged_group = NewGroup::merge_groups(self.group_counter, &surrounding_groups);
- 
 
             for point in merged_group.get_positions() { //update group list
                 self.groups[point.get_index()] = Some(self.group_counter);
@@ -90,27 +92,34 @@ impl NewBoard {
         self.group_counter += 1;
         self.reflect_group_to_board();
 
-
         // 3. update adjacent groups liberties
         // get list of adjacent opponant groups by finding the opposite colour to merge
         let adjacent_groups = self.find_groups_to_merge(coordinate, colour.swap_turn());
         self.recalculate_liberties(adjacent_groups.clone());
         let groups_to_remove = self.check_liberties(adjacent_groups);
-        self.remove_groups(groups_to_remove);
-        
-        let total_groups = self.group_map.len();
-        self.clean_map();
-        println!("Total Groups in the map: {}", total_groups);
 
-        // 4. check new groups liberties.
-        println!("  Groups:");
-        for group in self.group_map.values() {
-            println!("Group: {:?}", group);
+        if groups_to_remove.is_empty() { // checking for suicide
+            let final_group = self.find_group(coordinate).unwrap();
+            if !final_group.check_liberties(&self.grid) {
+                *self = original_state;
+                return Err(TurnErrors::Suicide);
+            }
         }
 
-        // TODO:
-        self.reflect_group_to_board();
+        self.remove_groups(groups_to_remove);
+        
+        //let total_groups = self.group_map.len();
+        self.clean_map(); // remove old groups
+        //println!("Total Groups in the map: {}", total_groups);
 
+        // 4. check new groups liberties.
+        //println!("  Groups:");
+        //for group in self.group_map.values() {
+            //println!("Group: {:?}", group);
+        //}
+
+        self.reflect_group_to_board();
+        Ok(())
     }
 
     pub fn recalculate_liberties(&mut self, groups: Vec<usize>) {
@@ -150,8 +159,8 @@ impl NewBoard {
                 groups.insert(*id);
             }
         }
-        println!("Number of groups: {}", groups.len()); 
-        println!("Groups on the board: {:?}", groups);
+        //println!("Number of groups: {}", groups.len()); 
+        //println!("Groups on the board: {:?}", groups);
     }
 }
 
@@ -186,7 +195,7 @@ impl NewBoard {
         &self.grid
     }
 
-    pub fn get_current_groups(&self, coordinate: Coordinate) -> Vec<NewGroup> {
+    pub fn get_current_groups(&self) -> Vec<NewGroup> {
         let current_groups: HashSet<NewGroup> = self.groups.clone() // returns all the groups currently on the board
                                                     .into_iter()
                                                     .filter_map(|x| x.and_then(|key| self.group_map.get(&key)))

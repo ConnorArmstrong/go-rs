@@ -1,7 +1,11 @@
-use crate::board::BOARD_SIZE;
-use crate::board::{index, position};
+#![allow(non_camel_case_types)]
+
+use crate::new_game::BOARD_SIZE;
 use std::hash::Hash;
 
+
+pub type position = (usize, usize); // (x, y)
+pub type index = usize; // index of the 1d vector
 
 #[derive(Clone, Copy, Debug)]
 pub enum Coordinate { // to make it easier to handle the position of the board and transfer between the two formats

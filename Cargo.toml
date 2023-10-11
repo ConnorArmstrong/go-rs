@@ -9,5 +9,7 @@ edition = "2021"
 eframe = "0.22.0"
 egui = "0.22.0"
 pancurses = "0.17.0"
+rand = "0.8.5"
+rayon = "1.8.0"
 
 

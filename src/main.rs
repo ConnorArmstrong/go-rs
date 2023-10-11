@@ -1,26 +1,34 @@
 #![allow(unused)]
 //#![windows_subsystem = "windows"]
 
-use crate::board::{Board, BOARD_SIZE, Colour};
+use crate::board::{Board, BOARD_SIZE};
 use crate::coordinate::Coordinate;
+use crate::colour::Colour;
+use crate::new_board::NewBoard;
 use pancurses::{initscr, endwin, Input, noecho, Window};
 
 mod board;
 mod coordinate;
 mod group;
-mod game;
 mod graphics;
 mod new_group;
 mod new_board;
+mod new_game;
+mod colour;
+mod fails;
+mod tree;
+mod zobrist;
+
+
 fn main() {
     println!("running...");
     graphics::run().unwrap();
 }
 
 
-fn print_board(window: &Window, board: &Board, pointer_pos: &(usize, usize)) {
-    for y in 0..board.size {
-        for x in 0..board.size {
+fn print_board(window: &Window, board: &NewBoard, pointer_pos: &(usize, usize)) {
+    for y in 0..BOARD_SIZE{
+        for x in 0..BOARD_SIZE {
             let coordinate = Coordinate::Position((x, y));
             match board.get(coordinate) {
                 Colour::Empty => window.addch('.'),
@@ -37,17 +45,13 @@ fn print_board(window: &Window, board: &Board, pointer_pos: &(usize, usize)) {
 
 pub fn run_printed() {
     println!("Hello, world!");
-    let mut board = Board::new(BOARD_SIZE);
+    let mut board = NewBoard::new();
     board.add_stone(Coordinate::Position((10, 10)), Colour::Black);
     board.add_stone(Coordinate::Position((10, 11)), Colour::White);
     board.add_stone(Coordinate::Position((11, 11)), Colour::Black);
     
     //board.display_board();
     
-    for group in &board.groups {
-        println!("{:?}", group.get_liberties());
-    }
-
     let mut pointer_pos: (usize, usize) = (9, 9);
     let mut colour: Colour = Colour::Black;
 

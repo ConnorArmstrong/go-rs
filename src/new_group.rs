@@ -1,4 +1,4 @@
-use crate::{Colour, coordinate::Coordinate, Board, group::Group};
+use crate::{Colour, coordinate::Coordinate, new_board::NewBoard};
 use std::{collections::HashSet, hash::Hash};
 
 #[derive(Clone, Debug)]
@@ -26,12 +26,11 @@ impl NewGroup {
         let mut liberties: HashSet<Coordinate> = HashSet::new();
 
         for position in &self.points {
-            for adjacent in Board::get_adjacent_indices(*position)  {
+            for adjacent in NewBoard::get_adjacent_indices(*position)  {
                 if grid[adjacent.get_index()] == Colour::Empty {
                     liberties.insert(adjacent);
                 }
             }
-        let x = liberties.len();
         self.liberties = liberties.len();
         }
     }
@@ -41,7 +40,7 @@ impl NewGroup {
         let mut liberties: HashSet<Coordinate> = HashSet::new();
 
         for position in &self.points {
-            for adjacent in Board::get_adjacent_indices(*position)  {
+            for adjacent in NewBoard::get_adjacent_indices(*position)  {
                 if grid[adjacent.get_index()] == Colour::Empty {
                     liberties.insert(adjacent);
                 }

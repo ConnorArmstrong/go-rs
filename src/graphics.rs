@@ -1,62 +1,57 @@
 use eframe::{egui, App, Frame, NativeOptions};
-use egui::{Rect, Id};
-use pancurses::reset_prog_mode;
-
-use crate::{board::{self, Colour}, coordinate::Coordinate};
-use crate::new_board::NewBoard;
+use egui::Id;
+use crate::colour::{Colour, self};
+use crate:: coordinate::Coordinate;
+use crate::new_game::{Game, BOARD_SIZE};
 
 struct MyApp {
-    board: NewBoard,
-    turn_to_play: Colour,
+    game: Game,
 }
 
 impl App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
-        let MyApp {board, turn_to_play} = self;
+        let MyApp {game: _} = self;
 
-        let grid_state = self.board.get_grid().clone();
-        let move_string = self.turn_to_play.get_string() + " to play.";
-
+        let grid_state = self.game.board.get_grid().clone();
+        let move_string = self.game.turn.get_string() + " to play.";
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            
 
-            //ui.heading(&move_string);
 
             // Calculate the size of each cell in the grid
-            let cell_size = ui.available_size_before_wrap().x / 18.5;
+            let cell_size = ui.available_size_before_wrap().x / BOARD_SIZE as f32;
             let go_board_rect = ui.min_rect().expand(2.0);
             let response = ui.interact(go_board_rect, Id::new("go board"), egui::Sense::click());
 
             // Draw the Go board
-            ui.allocate_ui(egui::vec2(cell_size * 19.0, cell_size * 19.0), |ui| {
+            ui.allocate_ui(egui::vec2(cell_size * BOARD_SIZE as f32, cell_size * BOARD_SIZE as f32), |ui| {
                 let mut shapes = Vec::new();
 
                 // Draw grid lines
-                for i in 0..19 {
+                for i in 0..BOARD_SIZE {
                     let x = i as f32 * cell_size + cell_size / 2.0;
                     let y = i as f32 * cell_size + cell_size / 2.0;
-
+                
+                    // Horizontal lines
                     shapes.push(egui::Shape::line_segment(
-                        [egui::pos2(x, cell_size / 2.0), egui::pos2(x, cell_size * 18.5)],
+                        [egui::pos2(cell_size / 2.0, y), egui::pos2(cell_size * (BOARD_SIZE as f32 - 0.5), y)],
                         egui::Stroke::new(1.0, egui::Color32::BLACK),
                     ));
-
+                
+                    // Vertical lines
                     shapes.push(egui::Shape::line_segment(
-                        [egui::pos2(cell_size / 2.0, y), egui::pos2(cell_size * 18.5, y)],
+                        [egui::pos2(x, cell_size / 2.0), egui::pos2(x, cell_size * (BOARD_SIZE as f32 - 0.5))],
                         egui::Stroke::new(1.0, egui::Color32::BLACK),
                     ));
                 }
 
-                
-
                 // Draw stones here!
-                for i in 0..19 {
-                    for j in 0..19 {
+                for i in 0..BOARD_SIZE {
+                    for j in 0..BOARD_SIZE {
                         let color = match &grid_state[Coordinate::Position((i, j)).get_index()] {
-                            board::Colour::White => egui::Color32::WHITE,
-                            board::Colour::Black => egui::Color32::BLACK,
-                            board::Colour::Empty => continue, // Skip empty positions
+                            colour::Colour::White => egui::Color32::WHITE,
+                            colour::Colour::Black => egui::Color32::BLACK,
+                            colour::Colour::Empty => continue, // Skip empty positions
                         };
                 
                         let center = egui::pos2(
@@ -67,7 +62,6 @@ impl App for MyApp {
                         shapes.push(egui::Shape::circle_filled(center, cell_size / 2.25, color));
                     }
                 }
-                //
 
                 ui.painter().extend(shapes);
             });
@@ -80,13 +74,9 @@ impl App for MyApp {
                 let i = (y_pos / cell_size).floor() as usize;
                 let j = (x_pos / cell_size).floor() as usize;
 
-                println!("---    Clicked at position {} {}    ---", i, j);
-            
-                let coords = Coordinate::Position((i, j));
+                let coords = clamp_coordinate(i, j);
 
-                // Now you can update the state of the board at the clicked cell (i, j):
-                self.board.add_stone(coords, Colour::Black);
-                //self.turn_to_play = self.turn_to_play.swap_turn();
+                self.game.play_move(coords);
             }
 
             if response.secondary_clicked() {
@@ -95,16 +85,14 @@ impl App for MyApp {
    
                 let i = (y_pos / cell_size).floor() as usize;
                 let j = (x_pos / cell_size).floor() as usize;
-
-                println!("Clicked at position {} {}", i, j);
             
-                let coords = Coordinate::Position((i, j));
+                let coords = clamp_coordinate(i, j);
 
-                // Now you can update the state of the board at the clicked cell (i, j):
-                self.board.add_stone(coords, Colour::White);
+                self.game.play_move(coords);
+                self.game.random_game();
             }
 
-            
+                       
             ui.heading(move_string);
         });
     }
@@ -112,14 +100,37 @@ impl App for MyApp {
 
 pub fn run() -> Result<(), eframe::Error> {
     let app = MyApp {
-        board: NewBoard::new(),
-        turn_to_play: Colour::Black,
+        game: Game::new(),
     };
 
     let native_options = NativeOptions {
         initial_window_size: Some(egui::vec2(450.0, 450.0)),
         ..Default::default()
     };
-    
-    eframe::run_native("Go.", native_options, Box::new(|cc| Box::new(app)))
+    Game::get_all_possible_moves(&app.game.board, Colour::Black);
+    eframe::run_native("Go.", native_options, Box::new(|_cc| Box::new(app)))
+}
+
+
+
+pub fn clamp_coordinate(x: usize, y: usize) -> Coordinate {
+    let mut new_x = x;
+    let mut new_y = y;
+
+    if new_x > BOARD_SIZE {
+        new_x = BOARD_SIZE;
+    }
+
+    if new_y > BOARD_SIZE {
+        new_y = BOARD_SIZE;
+    }
+
+    Coordinate::Position((new_x, new_y))
+}
+
+
+pub fn play_random_game() {
+    // todo!: 
+    // play a random game and have it update alongside the GUI
+    // potentially just simulate a click at a certain location
 }
