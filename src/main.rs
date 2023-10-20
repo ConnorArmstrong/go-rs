@@ -18,6 +18,7 @@ mod colour;
 mod fails;
 mod tree;
 mod zobrist;
+mod board_state;
 
 
 fn main() {
@@ -43,6 +44,7 @@ fn print_board(window: &Window, board: &NewBoard, pointer_pos: &(usize, usize)) 
     window.refresh();
 }
 
+/*
 pub fn run_printed() {
     println!("Hello, world!");
     let mut board = NewBoard::new();
@@ -82,3 +84,4 @@ pub fn run_printed() {
     
     endwin();
 }
+*/

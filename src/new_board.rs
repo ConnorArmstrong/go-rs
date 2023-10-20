@@ -1,4 +1,5 @@
-use crate::coordinate::Coordinate;
+use crate::zobrist;
+use crate::{coordinate::Coordinate, zobrist::ZobristTable};
 use crate::colour::Colour;
 use crate::new_group::NewGroup;
 use crate::fails::TurnErrors;
@@ -52,7 +53,7 @@ impl NewBoard {
         }
     }
 
-    pub fn add_stone(&mut self, coordinate: Coordinate, colour: Colour) -> Result<(), TurnErrors> {
+    pub fn add_stone(&mut self, coordinate: Coordinate, colour: Colour, visited_positions: Option<&ZobristTable>) -> Result<(), TurnErrors> {
         
         if coordinate.get_index() > BOARD_SIZE * BOARD_SIZE {
             return Err(TurnErrors::OutofBounds);
@@ -103,6 +104,13 @@ impl NewBoard {
             if !final_group.check_liberties(&self.grid) {
                 *self = original_state;
                 return Err(TurnErrors::Suicide);
+            }
+
+            if visited_positions.is_some() { // a zobrist table has been passed in
+                if visited_positions.unwrap().contains_position(&self.grid) { // the new current position has already occured
+                    *self = original_state;
+                    return Err(TurnErrors::Ko);
+                }
             }
         }
 

@@ -16,8 +16,6 @@ impl App for MyApp {
         let move_string = self.game.turn.get_string() + " to play.";
 
         egui::CentralPanel::default().show(ctx, |ui| {
-
-
             // Calculate the size of each cell in the grid
             let cell_size = ui.available_size_before_wrap().x / BOARD_SIZE as f32;
             let go_board_rect = ui.min_rect().expand(2.0);

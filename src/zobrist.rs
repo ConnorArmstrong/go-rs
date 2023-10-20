@@ -4,7 +4,7 @@ use rand::Rng;
 use std::collections::{HashMap, HashSet};
 
 
-
+#[derive(Debug, Clone)]
 pub struct ZobristTable {
     map: HashMap<(usize, Colour), u64>,
     visited: HashSet<u64>,

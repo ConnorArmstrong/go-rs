@@ -52,11 +52,9 @@ impl Game {
 
     pub fn play_move(&mut self, coordinate: Coordinate) -> bool {
         let original = self.board.clone(); // "save" the currrent state
-        let mut state = self.board.add_stone(coordinate, self.turn); // update the new state
+        let mut state = self.board.add_stone(coordinate, self.turn, Some(&self.zobrist)); // update the new state
 
-        if self.zobrist.contains_position(&self.board.get_grid()) && state.is_ok() { // results in a previous board position
-            state = Err(TurnErrors::Ko); //TODO: somehow include this in the board position - maybe Some(ZobristHash?)
-        }
+
 
         //println!("{:?}", state);
 
@@ -112,7 +110,7 @@ impl Game {
             let mut original_position = current_position.clone();
             let coordinate = Coordinate::Index(i);
 
-            let state = original_position.add_stone(coordinate, colour);
+            let state = original_position.add_stone(coordinate, colour, None); // push zobrist board into NewBoard
 
             match state {
                 Ok(_state) => {
@@ -166,7 +164,7 @@ impl Game {
         }
 
         let random_move = self.play_random_move(&possible_moves);
-        let _ = self.board.add_stone(random_move, self.turn);
+        let _ = self.board.add_stone(random_move, self.turn, Some(&self.zobrist));
         self.zobrist.insert_position(&self.board.get_grid());
         self.swap_turn();
     }
