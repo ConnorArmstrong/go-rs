@@ -1,6 +1,7 @@
 use crate::{Colour, coordinate::Coordinate, Board, board_state::BoardState};
 use std::{collections::HashSet, hash::Hash};
 
+#[derive(Clone, Debug)]
 pub struct GroupState {
     id: usize,
     pub colour: Colour,
@@ -14,7 +15,7 @@ impl GroupState {
     }
 
     /// merges multiple groupstates into a single group
-    pub fn merge_groups(id: usize, groups: &Vec<GroupState>) -> GroupState {
+    pub fn merge_groups(id: usize, groups: &Vec<&GroupState>) -> GroupState {
         let colour = groups[0].colour; // make a more robust check in the future
 
         let points: HashSet<Coordinate> = HashSet::from_iter(groups.iter().flat_map(|group| group.points.iter().cloned()));
@@ -43,6 +44,22 @@ impl GroupState {
     /// returns true if the group contains the given position
     pub fn contains(&self, position: Coordinate) -> bool {
         self.points.contains(&position)
+    }
+
+    pub fn get_points(&self) -> &HashSet<Coordinate> {
+        &self.points
+    }
+
+    pub fn get_positions(&self) -> Vec<Coordinate> {
+        return self.points.iter().cloned().collect();
+    }
+
+    pub fn get_colour(&self) -> Colour {
+        self.colour
+    }
+
+    pub fn get_id(&self) -> usize {
+        self.id
     }
 }
 
