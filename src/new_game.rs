@@ -17,7 +17,7 @@ use crate::colour::Colour;
 use crate::tree::GameTree;
 use crate::zobrist::ZobristTable;
 
-pub const BOARD_SIZE: usize = 19;
+pub const BOARD_SIZE: usize = 13;
 pub const AUTO_PLAY: bool = true;
 
 pub enum Turn {
@@ -110,7 +110,7 @@ impl Game {
             let mut original_position = current_position.clone();
             let coordinate = Coordinate::Index(i);
 
-            let state = original_position.add_stone(coordinate, colour, None); // push zobrist board into NewBoard
+            let state = original_position.add_stone(coordinate, colour, None);
 
             match state {
                 Ok(_state) => {

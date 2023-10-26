@@ -19,6 +19,8 @@ mod fails;
 mod tree;
 mod zobrist;
 mod board_state;
+mod game_state;
+mod group_state;
 
 
 fn main() {

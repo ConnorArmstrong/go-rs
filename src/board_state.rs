@@ -42,25 +42,24 @@ impl BoardState {
         grid
     }
 
-    pub fn remove_groups(&self, groups_to_remove: Vec<usize>) -> Vec<Option<usize>> {
+    /// takes a Vec<Option<usize>> and Vec<usize> and sets the value of the first Vec to None if that value appears in the second vector
+    pub fn remove_groups(groups: &Vec<Option<usize>>, groups_to_remove: Vec<usize>) -> Vec<Option<usize>> {
         // Create a HashSet for quicker lookup
-        let group_ids_to_remove: std::collections::HashSet<&NewGroup> = groups_to_remove.iter()
-            .filter_map(|&group_id| self.group_map.get(&group_id))
-            .collect();
+        let group_ids_to_remove: HashSet<usize> = groups_to_remove.into_iter().collect();
         
         // Create a new vector with updated groups
-        let new_groups = self.groups.iter().map(|x| {
+        let new_groups: Vec<Option<usize>> = groups.iter().map(|&x| {
             if let Some(id) = x {
-                if group_ids_to_remove.contains(self.group_map.get(id).unwrap()) {
+                if group_ids_to_remove.contains(&id) {
                     return None;
                 }
+                return Some(id);
             }
-            *x
+            x
         }).collect();
-
+    
         new_groups
     }
-
     /// places a stone onto the board
     /// acts as the play move for the local board instance
     pub fn add_stone(&self, coordinate: Coordinate, colour: Colour) -> Result<BoardState, TurnErrors> {
@@ -76,11 +75,10 @@ impl BoardState {
             return Err(TurnErrors::AlreadyPlaced);
         }
 
-        let new_group = NewGroup::new(self.group_counter, colour, coordinate); // creater the group
+        let new_group = NewGroup::new(self.group_counter, colour, coordinate); // create the group
         new_group_map.insert(self.group_counter, new_group.clone());
         new_groups[coordinate.get_index()] = Some(self.group_counter); // this can be changed later.
-
-        let mut surrounding_groups = self.find_adjacent_groups(coordinate, colour); // get all surrounding groups
+        let mut surrounding_groups = BoardState::find_adjacent_groups(&new_groups, &new_group_map, coordinate, colour, self.size); // get all surrounding groups - 
 
         if !surrounding_groups.is_empty() { // ie there exist groups to merge
             surrounding_groups.push(&new_group);
@@ -92,21 +90,21 @@ impl BoardState {
             new_group_map.insert(self.group_counter, merged_group);
         }
 
-        let adjacent_groups = self.find_adjacent_groups(coordinate, colour.swap_turn());
+        let adjacent_groups = BoardState::find_adjacent_groups(&new_groups, &new_group_map, coordinate, colour.swap_turn(), self.size);
         // find and check that the opposite colour groups to our new group have liberties > 0: else remove them from the board
-        let (new_groups, flag) = self.check_opposing_groups_liberties(&new_groups, &new_group_map, self.size, adjacent_groups);
+        let (new_groups, flag) = BoardState::check_opposing_groups_liberties(&new_groups, &new_group_map, self.size, adjacent_groups);
 
         let final_grid = &BoardState::generate_grid_from_groups(&new_groups, &new_group_map, self.size);
 
         if flag { // means I did not remove any groups
-            let final_group = new_group_map.get(&new_groups[coordinate.get_index()].unwrap()).unwrap();
+            let final_group = new_group_map.get(&new_groups[coordinate.get_index()].unwrap_or_else(|| panic!("Failed to unwrap new_groups at index {}", coordinate.get_index()))).unwrap_or_else(|| panic!("Failed to unwrap new_group_map"));            
             if !final_group.check_liberties(final_grid) { //final merged group has no liberties and didnt remove any other group
                 return Err(TurnErrors::Suicide);
             }
         }
 
         if self.zobrist_table.contains_position(&final_grid) { // check for repeated position/ko
-            return Err(TurnErrors::Suicide);
+            return Err(TurnErrors::Ko);
         }
 
         new_zobrist_table.insert_position(&final_grid);
@@ -130,21 +128,21 @@ impl BoardState {
         self.grid[index]
     }
 
-    pub fn get_adjacent_indices(&self, coordinate: Coordinate) -> Vec<Coordinate> {
+    pub fn get_adjacent_indices(size: usize, coordinate: Coordinate) -> Vec<Coordinate> {
         let (x, y) = coordinate.get_position();
         let mut indices = Vec::new();
 
         if x > 0 {
-            indices.push(Coordinate::Index((x - 1) * self.size + y)); // Top
+            indices.push(Coordinate::Index((x - 1) * size + y)); // Top
         }
         if y > 0 {
-            indices.push(Coordinate::Index(x * self.size + y - 1)); // Left
+            indices.push(Coordinate::Index(x * size + y - 1)); // Left
         }
-        if x < self.size - 1 {
-            indices.push(Coordinate::Index((x + 1) * self.size + y)); // Bottom
+        if x < size - 1 {
+            indices.push(Coordinate::Index((x + 1) * size + y)); // Bottom
         }
-        if y < self.size - 1 {
-            indices.push(Coordinate::Index(x * self.size + y + 1)); // Right
+        if y < size - 1 {
+            indices.push(Coordinate::Index(x * size + y + 1)); // Right
         }
         indices
     }
@@ -184,7 +182,6 @@ impl BoardState {
         None
     }
 
-
     /// returns true if the coordinate is empty
     pub fn check_empty(&self, coordinate: Coordinate) -> bool {
         self.groups[coordinate.get_index()].is_none()
@@ -196,7 +193,7 @@ impl BoardState {
         if colour == Colour::Empty {return vec![]}; // shouldnt be called on empty - if it is nothing happens as there is a length check
         let mut id_set: HashSet<usize> = HashSet::new();
 
-        for point in self.get_adjacent_indices(coordinate) {
+        for point in BoardState::get_adjacent_indices(self.size, coordinate) {
             if let Some(group_id) = self.groups[point.get_index()] {
                 if self.group_map.get(&group_id).unwrap().get_colour() == colour {
                     id_set.insert(group_id);
@@ -208,22 +205,28 @@ impl BoardState {
     }
 
     /// return a list of adjacent same colour groups given a specific coordinate
-    pub fn find_adjacent_groups(&self, coordinate: Coordinate, group_colour: Colour) -> Vec<&NewGroup> {
+    pub fn find_adjacent_groups<'a>(groups: &'a Vec<Option<usize>>, group_map: &'a HashMap<usize, NewGroup>, coordinate: Coordinate, group_colour: Colour, size: usize) -> Vec<&'a NewGroup> {
         // return a list of adjacent same colour groups given a specific coordinate 
-        let group = self.find_group(coordinate).unwrap();
+        let group = group_map.get(&groups[coordinate.get_index()].unwrap()).unwrap();
         let mut positions: HashSet<Coordinate> = HashSet::new();
 
-        for point in group.get_positions() { // get all positions adjacent to the group at the given coordinate
-            for adjacent_point in self.get_adjacent_indices(point) {
-                if !(group.get_points().contains(&adjacent_point)) && self.grid[adjacent_point.get_index()] == group_colour {
-                    positions.insert(adjacent_point);
+        for point in group.get_positions() { // for all points that are of the same colour adjacent to points in the group
+            for adjacent_point in BoardState::get_adjacent_indices(size, point) {
+                if !(group.get_points().contains(&adjacent_point)) {
+                    if let Some(index) = groups[adjacent_point.get_index()] {
+                        if let Some(group_data) = group_map.get(&index) {
+                            if group_data.get_colour() == group_colour {
+                                positions.insert(adjacent_point);
+                            }
+                        }
+                    }
                 }
             }
         }
 
         let mut surrounding_groups: HashSet<&NewGroup> = HashSet::new();
         for position in positions { // get all matching groups for said adjacent positions
-            let potential_group = self.find_group(position).unwrap();
+            let potential_group = group_map.get(&groups[position.get_index()].unwrap()).unwrap();
             if potential_group.get_colour() == group.get_colour() {
                 surrounding_groups.insert(potential_group);
             }
@@ -233,22 +236,24 @@ impl BoardState {
     }
 
     /// return the new list of groups after checking to remove adjacent groups with 0 liberties
-    pub fn check_opposing_groups_liberties(&self, total_groups: &Vec<Option<usize>>, map: &HashMap<usize, NewGroup>, size: usize, groups: Vec<&NewGroup>) -> (Vec<Option<usize>>, bool) {
+    pub fn check_opposing_groups_liberties(total_groups: &Vec<Option<usize>>, map: &HashMap<usize, NewGroup>, size: usize, groups: Vec<&NewGroup>) -> (Vec<Option<usize>>, bool) {
         // for each group in groups
         // update and check that the liberties are above 0 else remove them
         let mut didnt_remove_groups: bool = true; // exists so i can check for suicide
+        println!("Groups: {:?}", groups);
 
         let grid = BoardState::generate_grid_from_groups(total_groups, map, size);
         let mut ids_to_remove: Vec<usize> = Vec::new();
 
         for group in groups {
             if !group.check_liberties(&grid) {
+                println!("removing group with id {}", group.get_id());
                 ids_to_remove.push(group.id);
                 didnt_remove_groups = false;
             }
         }
 
-        (self.remove_groups(ids_to_remove), didnt_remove_groups)
+        (BoardState::remove_groups(total_groups, ids_to_remove), didnt_remove_groups)
     }
 
 }
