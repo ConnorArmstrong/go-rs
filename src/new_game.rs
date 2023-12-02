@@ -17,7 +17,7 @@ use crate::colour::Colour;
 use crate::tree::GameTree;
 use crate::zobrist::ZobristTable;
 
-pub const BOARD_SIZE: usize = 13;
+pub const BOARD_SIZE: usize = 9;
 pub const AUTO_PLAY: bool = true;
 
 pub enum Turn {
@@ -40,8 +40,8 @@ impl Game {
         Game {
             board: NewBoard::new(),
             turn: Colour::Black,
-            zobrist: ZobristTable::new(),
-            game_tree: GameTree::new(),
+            zobrist: ZobristTable::new(BOARD_SIZE),
+            game_tree: GameTree::new(BOARD_SIZE),
             rng: RefCell::new(thread_rng())
         }
     }
@@ -53,8 +53,6 @@ impl Game {
     pub fn play_move(&mut self, coordinate: Coordinate) -> bool {
         let original = self.board.clone(); // "save" the currrent state
         let mut state = self.board.add_stone(coordinate, self.turn, Some(&self.zobrist)); // update the new state
-
-
 
         //println!("{:?}", state);
 
@@ -92,7 +90,7 @@ impl Game {
             },
             Turn::Pass => {
                 self.swap_turn();
-                self.game_tree.add_move(turn, self.board.clone())
+                //self.game_tree.add_move(turn, self.board.clone())
             },
             Turn::Resign => {
                 self.swap_turn(); // for now

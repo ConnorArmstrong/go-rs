@@ -1,18 +1,20 @@
+use crate::board_state::BoardState;
+use crate::colour::{Colour, self};
 use crate::new_game::{Turn, Game};
 use crate::new_board::NewBoard;
 use crate::fails::TreeErrors;
 use std::collections::HashMap;
 
 pub struct GameTree {
-    board_states: Vec<(Turn, NewBoard)>,
+    board_states: Vec<(Turn, BoardState)>,
     pointer: usize,
 }
 
 
 impl GameTree {
-    pub fn new() -> Self {
+    pub fn new(size: usize) -> Self {
         let mut board_states = Vec::new();
-        board_states.push((Turn::Pass, NewBoard::new()));
+        board_states.push((Turn::Pass, BoardState::new(size)));
 
         GameTree {
             board_states,
@@ -20,7 +22,7 @@ impl GameTree {
         }   
     }
 
-    pub fn move_back(&mut self) -> Result<&(Turn, NewBoard), TreeErrors> {
+    pub fn move_back(&mut self) -> Result<&(Turn, BoardState), TreeErrors> {
         if self.pointer == 0 {
             return Err(TreeErrors::BelowZero);
         }
@@ -30,7 +32,7 @@ impl GameTree {
         Ok(&self.board_states[self.pointer])
     }
 
-    pub fn move_forward(&mut self) -> Result<&(Turn, NewBoard), TreeErrors> {
+    pub fn move_forward(&mut self) -> Result<&(Turn, BoardState), TreeErrors> {
         if self.pointer == self.board_states.len() - 1 {
             return Err(TreeErrors::AboveMax);
         }
@@ -41,7 +43,7 @@ impl GameTree {
     }
 
     
-    pub fn jump(&mut self, index: usize) -> Result<&(Turn, NewBoard), TreeErrors> {
+    pub fn jump(&mut self, index: usize) -> Result<&(Turn, BoardState), TreeErrors> {
         if index >= self.board_states.len() {
             return Err(TreeErrors::AboveMax);
         }
@@ -50,7 +52,7 @@ impl GameTree {
         return Ok(&self.board_states[self.pointer]);
     }
 
-    pub fn latest(&mut self) -> &(Turn, NewBoard) {
+    pub fn latest(&mut self) -> &(Turn, BoardState) {
         self.pointer = self.board_states.len() - 1;
 
         return &self.board_states[self.pointer];
@@ -60,10 +62,61 @@ impl GameTree {
         self.pointer = self.board_states.len() - 1;
     }
 
-    pub fn add_move(&mut self, turn: Turn, board: NewBoard) {
+    pub fn add_move(&mut self, turn: Turn, board: BoardState) {
         self.reset();
         self.board_states.push((turn, board));
         self.pointer += 1;
     }
 
+    pub fn get_pointer(&self) -> usize {
+        self.pointer
+    }
+
+    pub fn get_length(&self) -> usize {
+        self.board_states.len() - 1
+    }
+
+    /// returns true if the game is over by resignation or agreement
+    pub fn check_end(&self) -> bool {
+        if self.board_states.len() < 2 {
+            return false;
+        }
+    
+        match self.board_states.last().unwrap() {
+            (Turn::Resign, _) => true,
+            _ => {
+                if let Some((first_last, _)) = self.board_states.get(self.board_states.len() - 2) {
+                    if let Some((first_second_last, _)) = self.board_states.last() {
+                        match (first_last, first_second_last) {
+                            (Turn::Pass, Turn::Pass) => true,
+                            _ => false,
+                        }
+                    } else {
+                        false
+                    }
+                } else {
+                    false
+                }
+            }
+        }
+    }
+
+    /// returns true if the pointer is on the current position
+    pub fn up_to_date(&self) -> bool {
+        self.pointer == self.board_states.len() - 1
+    }
+
+    pub fn get_board(&self) -> (Colour, BoardState) {
+        let (_, board) = &self.board_states[self.pointer];
+
+        let mut colour = Colour::Empty;
+
+        if self.pointer % 2 == 0 {
+            colour = Colour::Black;
+        } else {
+            colour = Colour::White;
+        }
+
+        (colour, board.clone())
+    }
 }

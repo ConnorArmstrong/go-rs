@@ -11,11 +11,11 @@ pub struct ZobristTable {
 }
 
 impl ZobristTable {
-    pub fn new() -> Self {
+    pub fn new(size: usize) -> Self {
         let mut rng = rand::thread_rng();
         let mut table = HashMap::new();
 
-        for i in 0..(BOARD_SIZE * BOARD_SIZE) {
+        for i in 0..(size * size) {
             for &colour in &[Colour::Black, Colour::White] {
                 let random_value: u64 = rng.gen();
                 table.insert((i, colour), random_value);

@@ -1,4 +1,4 @@
-use crate::{Colour, coordinate::Coordinate, Board, board_state::BoardState};
+use crate::{Colour, coordinate::Coordinate, board_state::BoardState};
 use std::{collections::HashSet, hash::Hash};
 
 #[derive(Clone, Debug)]
@@ -39,6 +39,20 @@ impl GroupState {
             }
         }
         return liberties.len() > 0;
+    }
+
+    /// debug function to check how many liberties a group has
+    pub fn calculate_liberties(&self, grid: &Vec<Colour>, board_size: usize) -> usize {
+        let mut liberties: HashSet<Coordinate> = HashSet::new();
+
+        for position in &self.points {
+            for adjacent in BoardState::get_adjacent_indices(board_size, *position)  {
+                if grid[adjacent.get_index()] == Colour::Empty {
+                    liberties.insert(adjacent);
+                }
+            }
+        }
+        return liberties.len()
     }
 
     /// returns true if the group contains the given position

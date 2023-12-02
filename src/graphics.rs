@@ -13,8 +13,14 @@ impl App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         let MyApp {game: _} = self;
 
-        let grid_state = self.game.board_state.get_grid().clone();
-        let move_string = self.game.turn.get_string() + " to play.";
+        //let grid_state = self.game.board_state.get_grid().clone();
+
+        let (turn, boardstate) = self.game.game_tree.get_board();
+
+        let grid_state = boardstate.get_grid().clone();
+
+        let move_string = turn.get_string() + " to play.";
+        let turn_string = format!("{}/{}", self.game.game_tree.get_pointer(), self.game.game_tree.get_length());
 
         egui::CentralPanel::default().show(ctx, |ui| {
             // Calculate the size of each cell in the grid
@@ -93,13 +99,25 @@ impl App for MyApp {
 
                        
             ui.heading(move_string);
+            ui.weak(turn_string);
+
+        });
+
+        ctx.input(|i| {
+            let direction = i.scroll_delta.y; // check for vertical scroll
+
+            if direction > 0.0 {
+                self.game.jump_back();
+            } else if direction < 0.0 {
+                self.game.jump_forward();
+            }
         });
     }
 }
 
 pub fn run() -> Result<(), eframe::Error> {
     let app = MyApp {
-        game: GameState::new(13),
+        game: GameState::new(9),
     };
 
     let native_options = NativeOptions {

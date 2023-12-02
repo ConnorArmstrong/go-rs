@@ -28,7 +28,7 @@ impl GameState {
         GameState {
             board_state: BoardState::new(board_size),
             turn: Colour::Black,
-            game_tree: GameTree::new(),
+            game_tree: GameTree::new(board_size),
             rng: RefCell::new(rand::thread_rng()),
             size: board_size,
         }
@@ -40,6 +40,10 @@ impl GameState {
 
     pub fn play_move(&mut self, coordinate: Coordinate) -> bool {
         let new_position = self.board_state.add_stone(coordinate, self.turn);
+        if !self.game_tree.up_to_date() {
+            println!("Please reach the current position before playing a move");
+            return false;
+        }
 
 
         match new_position {
@@ -65,20 +69,24 @@ impl GameState {
             self.auto_move();
         }
 
+        self.game_tree.add_move(Turn::Move(coordinate), self.board_state.clone());
+
         return true;
     }
 
     pub fn play_turn(&mut self, turn: Turn) {
         match turn {
             Turn::Move(coordinate) => {
-                self.play_move(coordinate);
+                if self.play_move(coordinate) {
+                    self.game_tree.add_move(turn, self.board_state.clone());
+                }
             },
             Turn::Pass => {
                 self.swap_turn();
-                //self.game_tree.add_move(turn, board)
+                self.game_tree.add_move(turn, self.board_state.clone());
             },
             Turn::Resign => {
-                self.swap_turn(); // for now!
+                self.game_tree.add_move(turn, self.board_state.clone())
             }
         }
     }
@@ -127,16 +135,13 @@ impl GameState {
 
     pub fn random_game(&mut self) {
         println!("Playing random game");
-        while self.moves_to_play() {
+        while !self.check_end() {
             let possible_moves = self.get_all_possible_moves(self.turn);
-            if possible_moves.len() == 0 {
+            if possible_moves.len() < 5 {
                 self.play_turn(Turn::Pass);
             }
-            else if possible_moves.len() > 5 {
+            else  {
                 self.play_turn(Turn::Move(self.play_random_move(&possible_moves)));
-            }
-            else {
-                break;
             }
         }
 
@@ -167,5 +172,28 @@ impl GameState {
         }
     
         Coordinate::Position((new_x, new_y))
+    }
+
+    /// return true if the game is over by resignation or passing
+    pub fn check_end(&self) -> bool {
+        self.game_tree.check_end()
+    }
+
+    /// moves the game tree pointer forward one (called when mousewheel is scrolled down)
+    pub fn jump_forward(&mut self) {
+        if self.game_tree.up_to_date() {
+            return; // no need to change the board position
+        }
+
+        self.game_tree.move_forward();
+    }
+
+    /// moves the game tree pointer forward one (called when mousewheel is scrolled down)
+    pub fn jump_back(&mut self) {
+        if self.game_tree.get_pointer() == 0 {
+            return; // no need to change the board position
+        }
+
+        self.game_tree.move_back();
     }
 }

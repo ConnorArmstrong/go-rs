@@ -13,3 +13,9 @@ Cargo.lock
 
 # MSVC Windows builds of rustc generate these, which store debugging information
 *.pdb
+target/debug/deps/go_rs.d
+target/debug/go-rs.exe
+target/debug/go_rs.pdb
+target/debug/go-rs.d
+target/.rustc_info.json
+target/debug/.fingerprint/go-rs-968a832f44b60ea5/dep-bin-go-rs
