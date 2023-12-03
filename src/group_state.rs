@@ -75,6 +75,14 @@ impl GroupState {
     pub fn get_id(&self) -> usize {
         self.id
     }
+
+    pub fn from_empty_points(points: HashSet<Coordinate>) -> Self {
+        GroupState {
+            id: 777, // making number - shoot me
+            colour: Colour::Empty,
+            points,
+        }
+    }
 }
 
 
@@ -93,5 +101,6 @@ impl Hash for GroupState {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
         self.points.len().hash(state);
+        self.points.iter().map(|coordinate| coordinate.get_index()).sum::<usize>().hash(state);
     }
 }

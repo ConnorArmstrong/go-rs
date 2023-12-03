@@ -1,11 +1,12 @@
 // a purely function way to represent the board
-use std::collections::{HashMap, HashSet};
+use std::{collections::{HashMap, HashSet}, arch::x86_64};
 
-use crate::{colour::Colour, zobrist::ZobristTable, coordinate::Coordinate, fails::TurnErrors, group_state::GroupState};
+use rayon::iter::Empty;
+
+use crate::{colour::Colour, zobrist::ZobristTable, coordinate::{Coordinate, self}, fails::TurnErrors, group_state::GroupState};
 
 #[derive(Clone, Debug)]
 pub struct BoardState {
-    pub grid: Vec<Colour>,
     pub size: usize,
     pub groups: Vec<Option<usize>>,
     pub group_map: HashMap<usize, GroupState>,
@@ -18,7 +19,6 @@ impl BoardState {
     /// Creates a new board of a specified size
     pub fn new(size: usize) -> Self {
         BoardState {
-            grid: vec![Colour::Empty; size * size],
             size,
             groups: vec![None; size * size],
             group_map: HashMap::new(),
@@ -41,6 +41,12 @@ impl BoardState {
         }
 
         grid
+    }
+
+    /// allows for the generate_grid_from_groups to be called from outside the struct
+    pub fn get_grid(&self) -> Vec<Colour> {
+        BoardState::generate_grid_from_groups(&self.groups, &self.group_map, self.size)
+
     }
 
     /// takes a Vec<Option<usize>> and Vec<usize> and sets the value of the first Vec to None if that value appears in the second vector
@@ -97,11 +103,6 @@ impl BoardState {
             new_group_map.insert(self.group_counter, merged_group);
         }
 
-        // find opposite colour groups adjacent to the new group
-        //let adjacent_groups = BoardState::find_adjacent_groups(&new_groups, &new_group_map, coordinate, colour.swap_turn(), self.size);
-
-        // find and check that the opposite colour groups to our new group have liberties > 0: else remove them from the board
-        //let (new_groups, flag) = BoardState::check_opposing_groups_liberties(&new_groups, &new_group_map, self.size, &adjacent_groups);
         let (new_groups, flag) = BoardState::check_opposing_adjacent_liberties(&new_groups, &new_group_map, self.size, coordinate);
 
         let final_grid = &BoardState::generate_grid_from_groups(&new_groups, &new_group_map, self.size);
@@ -124,7 +125,6 @@ impl BoardState {
         let final_group_map = BoardState::clean_map(new_group_map, &new_groups);
 
         Ok(BoardState {
-            grid: final_grid.to_owned(),
             size: self.size,
             groups: new_groups.to_owned(),
             group_map: final_group_map,
@@ -143,11 +143,6 @@ impl BoardState {
 
 // pure state
 impl BoardState {
-    pub fn get(&self, coordinate: Coordinate) -> Colour {
-        let index = coordinate.get_index();
-        self.grid[index]
-    }
-
     pub fn get_adjacent_indices(size: usize, coordinate: Coordinate) -> Vec<Coordinate> {
         let (x, y) = coordinate.get_position();
         let mut indices = Vec::new();
@@ -165,10 +160,6 @@ impl BoardState {
             indices.push(Coordinate::Index(x * size + y + 1)); // Right
         }
         indices
-    }
-
-    pub fn get_grid(&self) -> &Vec<Colour> {
-        &self.grid
     }
 
     /// return a list of all current groups actually on the board
@@ -327,7 +318,122 @@ impl BoardState {
             let points = group.get_positions();
             let liberties = group.calculate_liberties(&grid, self.size);
             let colour = group.colour;
-            println!("Group {}: {:#?} with positions: {:?} has {} liberties", id, colour, points, liberties);
+            println!("Group {}: {:#?} with {:} positions: {:?} has {} liberties", id, colour, points.len(), points, liberties);
         }
+    }
+
+    pub fn debug_selection(&self, coordinate: Coordinate) {
+        if self.groups[coordinate.get_index()] == None {
+            println!("Error! This is an Empty Square");
+            return;
+        }
+
+        let id = self.groups[coordinate.get_index()].expect("Didnt find an ID");
+        let group = self.group_map.get(&id).unwrap();
+
+        println!("-- GROUP INFO --");
+        let points = group.get_positions();
+        let liberties = group.calculate_liberties(&self.get_grid(), self.size);
+        let colour = group.colour;
+        println!("Group {}: {:#?} with positions: {:?} has {} liberties", id, colour, points, liberties);
+    }
+
+    /// Assuming game finished (and no dead stones) this will return how many empty spaces are enclosed by a particular colour
+    pub fn get_surrounded_area(&self, grid: &Vec<Colour>, colour: Colour) -> usize {
+        // find all groups of that colour
+        // then do like a flood fill to find all empty squares
+
+        let mut empty_locations: HashSet<Coordinate> = HashSet::new();
+ 
+        
+        // get all groups of the specific colour
+        let groups: Vec<&GroupState> = self.group_map.values().filter(|&group| group.colour == colour).collect();
+
+        let mut queue: Vec<Coordinate> = groups
+            .iter()
+            .flat_map(|group| group.get_positions())
+            .flat_map(|coordinate| BoardState::get_adjacent_indices(self.size, coordinate))
+            .filter(|&adjacent_coord| {
+                let index = adjacent_coord.get_index();
+                grid.get(index) == Some(&Colour::Empty)
+            })
+            .collect();
+
+        while let Some(position) = queue.pop() {
+            if !empty_locations.contains(&position) && grid[position.get_index()] == Colour::Empty {
+                let neighbours: Vec<Coordinate> = BoardState::get_adjacent_indices(self.size, position)  //  only where empty
+                                                                .iter()
+                                                                .filter(|position| grid[position.get_index()] == Colour::Empty)
+                                                                .map(|coordinate| coordinate.to_owned())
+                                                                .collect();
+                queue.extend(neighbours);
+                empty_locations.insert(position);
+            }
+        }
+
+        return empty_locations.len()
+    }
+
+    /// check if all empty spaces are only surrounded by one colour -> once this is true i can force the end of the game
+    pub fn check_all_important_points_played(&self) -> bool {
+        // go through all empty points on the board 
+        // search through all adjacent points - and check if they are somehow adjacent to both a white and black stone
+        // if this is the case, return false
+        // else return true
+
+        if self.group_map.len() < 2 { // there needs to be a minimum number of groups on the board
+            return false;
+        }
+
+        let grid = self.get_grid();
+
+        let mut groups: HashSet<GroupState> = HashSet::new();
+
+        let empty_points: Vec<Coordinate> = grid
+            .iter()
+            .enumerate()
+            .filter(|(_, value)| value == &&Colour::Empty)
+            .map(|(index, _)| Coordinate::Index(index))
+            .collect();
+
+        for point in empty_points {
+            groups.insert(self.create_empty_group(point)); // creates the empty group containing all adjacent empty squares to this one
+        }
+
+        println!("Number of empty groups: {:?}", groups.len());
+
+        for empty_group in groups {
+            // Check if adjacent points to this group are all of the same non-empty color
+            let mut adjacents: HashSet<Colour> = HashSet::new();
+
+            for empty_point in empty_group.get_positions() {
+                let a = BoardState::get_adjacent_indices(self.size, empty_point);
+                adjacents.extend(a.iter().map(|&coord| grid[coord.get_index()]));
+            }
+
+            if adjacents.contains(&Colour::Black) && adjacents.contains(&Colour::White) {
+                return false; // There are both black and white stones adjacent to the group
+            }
+        }
+
+        true 
+    }
+
+    /// Goes through all adjacent points to create a group of empty "territory"
+    pub fn create_empty_group(&self, coordinate: Coordinate) -> GroupState {
+        let mut points: HashSet<Coordinate> = HashSet::new();
+        let grid = self.get_grid();
+        let mut queue = vec![coordinate];
+
+        while let Some(position) = queue.pop() {
+            if !points.contains(&position) {
+                let adjacent_empty_points: Vec<Coordinate> = BoardState::get_adjacent_indices(self.size, position).iter().filter(|p| grid[p.get_index()] == Colour::Empty)
+                    .map(|c| c.to_owned()).collect();
+
+                queue.extend(adjacent_empty_points);
+                points.insert(position);
+            }
+        }
+        GroupState::from_empty_points(points)
     }
 }

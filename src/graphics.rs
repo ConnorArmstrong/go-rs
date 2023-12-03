@@ -96,6 +96,18 @@ impl App for MyApp {
                 self.game.random_game();
             }
 
+            if response.middle_clicked() {
+                let y_pos = (response.interact_pointer_pos().unwrap().y - response.rect.min.y).max(0.0);
+                let x_pos = (response.interact_pointer_pos().unwrap().x - response.rect.min.x).max(0.0);
+   
+                let i = (y_pos / cell_size).floor() as usize;
+                let j = (x_pos / cell_size).floor() as usize;
+            
+                let coords = self.game.clamp_coordinate(i, j);
+
+                self.game.board_state.debug_selection(coords);
+            }
+
                        
             ui.heading(move_string);
             ui.weak(turn_string);
@@ -117,6 +129,15 @@ impl App for MyApp {
 
             if i.key_pressed(egui::Key::R) {
                 self.game.play_turn(Turn::Resign);
+            }
+
+            if i.key_pressed(egui::Key::P) {
+                let value = self.game.calculate_total_completed_score();
+                println!("{:?}", value);
+            }
+
+            if i.key_pressed(egui::Key::Space) {
+                println!("{:?}", self.game.board_state.check_all_important_points_played());
             }
         });
     }

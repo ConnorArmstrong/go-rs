@@ -192,4 +192,39 @@ impl GameState {
 
         self.game_tree.move_back();
     }
+
+    /// calculate the score of the game assuming there are no dead stones
+    pub fn calculate_total_completed_score(&self) -> (Colour, usize) {
+        // ie this just finds empty spots, assigns them to a big group
+        // matches the groups to a colour and then sums up the empty spots
+        // chinese scoring is empty spots + number of stones on the board
+
+        let grid = self.board_state.get_grid(); // the board state
+        
+        let (black_stone_count, white_stone_count): (usize, usize) = grid.iter()
+            .map(|&colour| match colour {
+                Colour::Black => (1, 0),
+                Colour::White => (0, 1),
+                Colour::Empty => (0, 0),
+            })
+        .fold((0, 0), |acc, counts| (acc.0 + counts.0, acc.1 + counts.1));
+
+        // Count the number of empty intersections surrounded by each colour
+        let black_area = self.board_state.get_surrounded_area(&grid, Colour::Black);
+        let white_area = self.board_state.get_surrounded_area(&grid, Colour::White);
+
+        // Chinese scoring: empty spots + number of stones on the board
+        let black_score = black_area + black_stone_count;
+        let white_score = white_area + white_stone_count;
+
+        println!("Black Score: {}", black_score);
+        println!("White Score: {}", white_score);
+
+        // Return the total scores for both colours
+        if black_score > white_score {
+            (Colour::Black, black_score - white_score)
+        } else {
+            (Colour::White, white_score - black_score)
+        }
+    }
 }
