@@ -15,16 +15,11 @@ use crate::fails::TurnErrors;
 use crate::new_board::NewBoard;
 use crate::colour::Colour;
 use crate::tree::GameTree;
+use crate::turn::Turn;
 use crate::zobrist::ZobristTable;
 
 pub const BOARD_SIZE: usize = 9;
 pub const AUTO_PLAY: bool = true;
-
-pub enum Turn {
-    Move(Coordinate), // move a stone (coordinate could either be the position or index)
-    Pass, // 2 passes and the game is over
-    Resign, // resign the game
-}
 
 pub struct Game { // the actual game logic required
     pub board: NewBoard, 

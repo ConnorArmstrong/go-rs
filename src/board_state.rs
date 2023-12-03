@@ -1,8 +1,5 @@
 // a purely function way to represent the board
-
 use std::collections::{HashMap, HashSet};
-
-use eframe::glow::LINES_ADJACENCY;
 
 use crate::{colour::Colour, zobrist::ZobristTable, coordinate::Coordinate, fails::TurnErrors, group_state::GroupState};
 
@@ -101,7 +98,7 @@ impl BoardState {
         }
 
         // find opposite colour groups adjacent to the new group
-        let adjacent_groups = BoardState::find_adjacent_groups(&new_groups, &new_group_map, coordinate, colour.swap_turn(), self.size);
+        //let adjacent_groups = BoardState::find_adjacent_groups(&new_groups, &new_group_map, coordinate, colour.swap_turn(), self.size);
 
         // find and check that the opposite colour groups to our new group have liberties > 0: else remove them from the board
         //let (new_groups, flag) = BoardState::check_opposing_groups_liberties(&new_groups, &new_group_map, self.size, &adjacent_groups);
@@ -316,6 +313,7 @@ impl BoardState {
         for group_id in groups_to_check { // find the groups that need to be removed
             if !map.get(&group_id).unwrap().check_liberties(&grid, size) { // if a checked group has 0 liberties
                 groups_to_remove.push(group_id);
+                didnt_remove_groups = false;
             }
         }
 

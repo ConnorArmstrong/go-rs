@@ -7,12 +7,9 @@ use rand::Rng;
 use rand::rngs::ThreadRng;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
-use crate::coordinate;
-use crate::{board_state::BoardState, colour::Colour, tree::GameTree, coordinate::Coordinate, fails::TurnErrors, new_game::Turn};
+use crate::{board_state::BoardState, colour::Colour, tree::GameTree, coordinate::Coordinate, fails::TurnErrors, turn::Turn};
 
 pub const AUTO_PLAY: bool = false;
-
-
 
 pub struct GameState {
     pub board_state: BoardState,
@@ -21,7 +18,6 @@ pub struct GameState {
     rng: RefCell<ThreadRng>,
     pub size: usize,
 }
-
 
 impl GameState {
     pub fn new(board_size: usize) -> Self {

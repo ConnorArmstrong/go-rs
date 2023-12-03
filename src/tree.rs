@@ -1,9 +1,7 @@
 use crate::board_state::BoardState;
-use crate::colour::{Colour, self};
-use crate::new_game::{Turn, Game};
-use crate::new_board::NewBoard;
+use crate::colour::Colour;
 use crate::fails::TreeErrors;
-use std::collections::HashMap;
+use crate::turn::Turn;
 
 pub struct GameTree {
     board_states: Vec<(Turn, BoardState)>,
@@ -109,7 +107,7 @@ impl GameTree {
     pub fn get_board(&self) -> (Colour, BoardState) {
         let (_, board) = &self.board_states[self.pointer];
 
-        let mut colour = Colour::Empty;
+        let colour;
 
         if self.pointer % 2 == 0 {
             colour = Colour::Black;

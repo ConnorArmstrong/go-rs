@@ -21,6 +21,7 @@ mod zobrist;
 mod board_state;
 mod game_state;
 mod group_state;
+mod turn;
 
 
 fn main() {

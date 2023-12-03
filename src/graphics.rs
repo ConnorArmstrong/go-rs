@@ -1,9 +1,10 @@
 use eframe::{egui, App, Frame, NativeOptions};
 use egui::Id;
-use crate::colour::{Colour, self};
+
+use crate::colour;
 use crate:: coordinate::Coordinate;
 use crate::game_state::GameState;
-use crate::new_game::{Game, BOARD_SIZE};
+use crate::turn::Turn;
 
 struct MyApp {
     game: GameState,
@@ -12,8 +13,6 @@ struct MyApp {
 impl App for MyApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
         let MyApp {game: _} = self;
-
-        //let grid_state = self.game.board_state.get_grid().clone();
 
         let (turn, boardstate) = self.game.game_tree.get_board();
 
@@ -111,6 +110,14 @@ impl App for MyApp {
             } else if direction < 0.0 {
                 self.game.jump_forward();
             }
+
+            if i.key_pressed(egui::Key::A) {
+                self.game.play_turn(Turn::Pass);
+            }
+
+            if i.key_pressed(egui::Key::R) {
+                self.game.play_turn(Turn::Resign);
+            }
         });
     }
 }
@@ -125,28 +132,4 @@ pub fn run() -> Result<(), eframe::Error> {
         ..Default::default()
     };
     eframe::run_native("Go.", native_options, Box::new(|_cc| Box::new(app)))
-}
-
-
-pub fn clamp_coordinate(x: usize, y: usize) -> Coordinate {
-    let mut new_x = x;
-    let mut new_y = y;
-
-    if new_x > BOARD_SIZE {
-        new_x = BOARD_SIZE;
-    }
-
-    if new_y > BOARD_SIZE {
-        new_y = BOARD_SIZE;
-    }
-
-    Coordinate::Position((new_x, new_y))
-}
-
-
-
-pub fn play_random_game() {
-    // todo!: 
-    // play a random game and have it update alongside the GUI
-    // potentially just simulate a click at a certain location
 }
