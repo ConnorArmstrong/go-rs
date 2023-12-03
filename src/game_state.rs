@@ -30,10 +30,13 @@ impl GameState {
         }
     }
 
+
+    /// Swap the colour
     pub fn swap_turn(&mut self) {
         self.turn = self.turn.swap_turn();
     }
 
+    /// Attempts to play a move at the specified position and returns whether it was successful
     pub fn play_move(&mut self, coordinate: Coordinate) -> bool {
         let new_position = self.board_state.add_stone(coordinate, self.turn);
         if !self.game_tree.up_to_date() {
@@ -65,11 +68,10 @@ impl GameState {
             self.auto_move();
         }
 
-        self.game_tree.add_move(Turn::Move(coordinate), self.board_state.clone());
-
         return true;
     }
 
+    /// handles all Turn Enum Arms: Move, Pass and Resign
     pub fn play_turn(&mut self, turn: Turn) {
         match turn {
             Turn::Move(coordinate) => {
@@ -155,6 +157,7 @@ impl GameState {
         self.play_move(random_move);
     }
 
+    /// clamps the coordinate to be within the max size of the board
     pub fn clamp_coordinate(&self, x: usize, y: usize) -> Coordinate {
         let mut new_x = x;
         let mut new_y = y;

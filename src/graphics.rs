@@ -80,7 +80,7 @@ impl App for MyApp {
 
                 let coords = self.game.clamp_coordinate(i, j);
 
-                self.game.play_move(coords);
+                self.game.play_turn(Turn::Move(coords));
             }
 
             if response.secondary_clicked() {
@@ -92,7 +92,7 @@ impl App for MyApp {
             
                 let coords = self.game.clamp_coordinate(i, j);
 
-                self.game.play_move(coords);
+                self.game.play_turn(Turn::Move(coords));
                 self.game.random_game();
             }
 
@@ -105,7 +105,8 @@ impl App for MyApp {
             
                 let coords = self.game.clamp_coordinate(i, j);
 
-                self.game.board_state.debug_selection(coords);
+                let (_, board) = self.game.game_tree.get_board();
+                board.debug_selection(coords);
             }
 
                        
@@ -128,7 +129,7 @@ impl App for MyApp {
             }
 
             if i.key_pressed(egui::Key::R) {
-                self.game.play_turn(Turn::Resign);
+                self.game = GameState::new(BOARD_SIZE);
             }
 
             if i.key_pressed(egui::Key::P) {
