@@ -1,5 +1,6 @@
 use crate::board_state::BoardState;
 use crate::colour::Colour;
+use crate::coordinate::Coordinate;
 use crate::fails::TreeErrors;
 use crate::turn::Turn;
 
@@ -116,5 +117,14 @@ impl GameTree {
         }
 
         (colour, board.clone())
+    }
+
+    pub fn get_last_move(&self) -> Option<Coordinate> {
+        let data = self.board_states[self.pointer].0;
+
+        match data {
+            Turn::Move(coordinate) => Some(coordinate),
+            _ => None
+        }
     }
 }

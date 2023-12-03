@@ -1,5 +1,6 @@
 use crate::coordinate::Coordinate;
 
+#[derive(Clone, Copy)]
 pub enum Turn {
     Move(Coordinate), // move a stone (coordinate could either be the position or index)
     Pass, // 2 passes and the game is over

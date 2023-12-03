@@ -65,7 +65,9 @@ impl GameState {
         }
 
         if AUTO_PLAY {
-            self.auto_move();
+            if self.turn == Colour::White {
+                self.auto_move();
+            }
         }
 
         return true;
@@ -154,7 +156,7 @@ impl GameState {
         }
 
         let random_move = self.play_random_move(&possible_moves);
-        self.play_move(random_move);
+        self.play_turn(Turn::Move(random_move));
     }
 
     /// clamps the coordinate to be within the max size of the board

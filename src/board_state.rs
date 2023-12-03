@@ -46,7 +46,6 @@ impl BoardState {
     /// allows for the generate_grid_from_groups to be called from outside the struct
     pub fn get_grid(&self) -> Vec<Colour> {
         BoardState::generate_grid_from_groups(&self.groups, &self.group_map, self.size)
-
     }
 
     /// takes a Vec<Option<usize>> and Vec<usize> and sets the value of the first Vec to None if that value appears in the second vector
@@ -344,7 +343,6 @@ impl BoardState {
         // then do like a flood fill to find all empty squares
 
         let mut empty_locations: HashSet<Coordinate> = HashSet::new();
- 
         
         // get all groups of the specific colour
         let groups: Vec<&GroupState> = self.group_map.values().filter(|&group| group.colour == colour).collect();
@@ -381,11 +379,11 @@ impl BoardState {
         // if this is the case, return false
         // else return true
 
-        if self.group_map.len() < 2 { // there needs to be a minimum number of groups on the board
+        let grid = self.get_grid();
+
+        if grid.iter().filter(|colour| colour != &&Colour::Empty).collect::<Vec<&Colour>>().len() < 5 {
             return false;
         }
-
-        let grid = self.get_grid();
 
         let mut groups: HashSet<GroupState> = HashSet::new();
 
@@ -420,6 +418,7 @@ impl BoardState {
     }
 
     /// Goes through all adjacent points to create a group of empty "territory"
+    /// This is a helper function for check_all_important_points_played() in order to build up the empty groups
     pub fn create_empty_group(&self, coordinate: Coordinate) -> GroupState {
         let mut points: HashSet<Coordinate> = HashSet::new();
         let grid = self.get_grid();

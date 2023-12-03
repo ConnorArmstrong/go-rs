@@ -1,7 +1,8 @@
 use eframe::{egui, App, Frame, NativeOptions};
 use egui::Id;
 
-use crate::{colour, BOARD_SIZE};
+use crate::colour::Colour;
+use crate::{colour, BOARD_SIZE, coordinate};
 use crate:: coordinate::Coordinate;
 use crate::game_state::GameState;
 use crate::turn::Turn;
@@ -15,6 +16,7 @@ impl App for MyApp {
         let MyApp {game: _} = self;
 
         let (turn, boardstate) = self.game.game_tree.get_board();
+        let last_move_indicator = self.game.game_tree.get_last_move();
 
         let grid_state = boardstate.get_grid().clone();
 
@@ -62,9 +64,19 @@ impl App for MyApp {
                             j as f32 * cell_size + cell_size / 2.0,
                             i as f32 * cell_size + cell_size / 2.0,
                         );
+                                          
                         shapes.push(egui::Shape::circle_stroke(center, cell_size / 2.2, egui::Stroke::new(1.5, egui::Color32::BLACK))); // black outline
                         shapes.push(egui::Shape::circle_filled(center, cell_size / 2.25, color));
                     }
+                }
+
+                if let Some(move_coordinate) = last_move_indicator { // indicates the last move
+                    let center = egui::pos2(
+                        move_coordinate.get_position().1 as f32 * cell_size + cell_size / 2.0,
+                        move_coordinate.get_position().0 as f32 * cell_size + cell_size / 2.0,
+                    );
+                    let indicator_colour = if turn == Colour::Black {egui::Color32::BLACK} else {egui::Color32::WHITE};
+                    shapes.push(egui::Shape::circle_stroke(center, cell_size / 5.0, egui::Stroke::new(2.5, indicator_colour)));
                 }
 
                 ui.painter().extend(shapes);
