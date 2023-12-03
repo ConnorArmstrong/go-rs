@@ -1,4 +1,3 @@
-use crate::board::BOARD_SIZE;
 use crate::Colour;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};

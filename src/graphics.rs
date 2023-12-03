@@ -1,7 +1,7 @@
 use eframe::{egui, App, Frame, NativeOptions};
 use egui::Id;
 
-use crate::colour;
+use crate::{colour, BOARD_SIZE};
 use crate:: coordinate::Coordinate;
 use crate::game_state::GameState;
 use crate::turn::Turn;
@@ -124,7 +124,7 @@ impl App for MyApp {
 
 pub fn run() -> Result<(), eframe::Error> {
     let app = MyApp {
-        game: GameState::new(9),
+        game: GameState::new(BOARD_SIZE),
     };
 
     let native_options = NativeOptions {

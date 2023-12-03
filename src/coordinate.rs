@@ -1,7 +1,8 @@
 #![allow(non_camel_case_types)]
 
-use crate::new_game::BOARD_SIZE;
 use std::hash::Hash;
+
+use crate::BOARD_SIZE;
 
 
 pub type position = (usize, usize); // (x, y)

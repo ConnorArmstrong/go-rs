@@ -1,19 +1,13 @@
 #![allow(unused)]
 //#![windows_subsystem = "windows"]
 
-use crate::board::{Board, BOARD_SIZE};
 use crate::coordinate::Coordinate;
 use crate::colour::Colour;
-use crate::new_board::NewBoard;
 use pancurses::{initscr, endwin, Input, noecho, Window};
 
-mod board;
 mod coordinate;
-mod group;
+
 mod graphics;
-mod new_group;
-mod new_board;
-mod new_game;
 mod colour;
 mod fails;
 mod tree;
@@ -24,12 +18,14 @@ mod group_state;
 mod turn;
 
 
+const BOARD_SIZE: usize = 9;
+
 fn main() {
     println!("running...");
     graphics::run().unwrap();
 }
 
-
+/*
 fn print_board(window: &Window, board: &NewBoard, pointer_pos: &(usize, usize)) {
     for y in 0..BOARD_SIZE{
         for x in 0..BOARD_SIZE {
@@ -47,7 +43,7 @@ fn print_board(window: &Window, board: &NewBoard, pointer_pos: &(usize, usize)) 
     window.refresh();
 }
 
-/*
+
 pub fn run_printed() {
     println!("Hello, world!");
     let mut board = NewBoard::new();
