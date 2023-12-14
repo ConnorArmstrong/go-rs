@@ -372,6 +372,42 @@ impl BoardState {
         return empty_locations.len()
     }
 
+    /// returns a list of all the empty territory surrounded by the given colour (in the form of a vec of GroupState)
+    pub fn get_territory(&self, colour: Colour) -> Vec<GroupState> {
+        let grid = self.get_grid();
+
+        let mut empty_groups: HashSet<GroupState> = HashSet::new();
+
+        let empty_points: Vec<Coordinate> = grid // collects all the empty coordinates
+            .iter()
+            .enumerate()
+            .filter(|(_, value)| value == &&Colour::Empty)
+            .map(|(index, _)| Coordinate::Index(index))
+            .collect();
+
+        for position in empty_points {
+            empty_groups.insert(self.create_empty_group(position)); // inefficient implementation - this goes through every empty point and constructs a group from it
+        } // after this we now have every empty group on the board
+
+        let mut surrounded_territory: Vec<GroupState> = Vec::new(); // surrounded territory of a particular colour
+
+        for empty_group in empty_groups {
+            let mut adjacents: HashSet<Colour> = HashSet::new();
+
+            for empty_point in empty_group.get_positions() {
+                let a = BoardState::get_adjacent_indices(self.size, empty_point);
+                adjacents.extend(a.iter().map(|&coord| grid[coord.get_index()]));
+            }
+
+            if adjacents.contains(&colour.swap_turn()) {
+                continue;
+            } else {
+                surrounded_territory.push(empty_group);
+            }
+        }
+        surrounded_territory
+    }
+
     /// check if all empty spaces are only surrounded by one colour -> once this is true i can force the end of the game
     pub fn check_all_important_points_played(&self) -> bool {
         // go through all empty points on the board 
@@ -398,7 +434,7 @@ impl BoardState {
             groups.insert(self.create_empty_group(point)); // creates the empty group containing all adjacent empty squares to this one
         }
 
-        println!("Number of empty groups: {:?}", groups.len());
+        // /println!("Number of empty groups: {:?}", groups.len());
 
         for empty_group in groups {
             // Check if adjacent points to this group are all of the same non-empty color

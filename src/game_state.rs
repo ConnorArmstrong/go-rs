@@ -1,12 +1,14 @@
 use std::cell::RefCell;
+use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::thread::{Thread, self};
 use std::time::Duration;
-
 use rand::Rng;
 use rand::rngs::ThreadRng;
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 
+use crate::coordinate;
+use crate::group_state::GroupState;
 use crate::{board_state::BoardState, colour::Colour, tree::GameTree, coordinate::Coordinate, fails::TurnErrors, turn::Turn};
 
 pub const AUTO_PLAY: bool = false;
@@ -53,11 +55,13 @@ impl GameState {
             }
 
             Err(error) =>{
+                let turn_number = self.game_tree.get_length();
+                let turn_colour: String = self.turn.get_string();
                 match error {
-                    TurnErrors::AlreadyPlaced => println!("Stone already in the position"),
-                    TurnErrors::Ko => println!("Can't place due to Ko"),
-                    TurnErrors::Suicide => println!("Can't place due to suicide"),
-                    TurnErrors::OutofBounds => println!("Can't place due to out of bounds"),
+                    TurnErrors::AlreadyPlaced => println!("Error on Move {}: {} Stone already in the position at {:?}", turn_number, turn_colour, coordinate),
+                    TurnErrors::Ko => println!("Error on Move {}: {} can't place due to Ko", turn_number, turn_colour),
+                    TurnErrors::Suicide => println!("Error on Move {}: {} can't place due to suicide at {:?}", turn_number, turn_colour, coordinate),
+                    TurnErrors::OutofBounds => println!("Error on Move {}: {} can't place due to out of bounds at {:?}", turn_number, turn_colour, coordinate),
                 }
 
                 return false;
@@ -91,8 +95,8 @@ impl GameState {
         }
     }
 
-    /// returns a list of all possible moves for a given colour via brute force
-    pub fn get_all_possible_moves(&self, colour: Colour) -> Vec<Coordinate> {
+    /// returns a list of all possible moves for a given colour via brute force and paralelisation
+    pub fn get_all_possible_moves_fast(&self, colour: Colour) -> Vec<Coordinate> {
         let possible_moves = Arc::new(Mutex::new(Vec::new()));
         let current_state = self.board_state.clone();
 
@@ -112,16 +116,31 @@ impl GameState {
         Arc::try_unwrap(possible_moves).unwrap().into_inner().unwrap()
     }
 
+    pub fn get_all_possible_moves(&self, colour: Colour) -> Vec<Coordinate> {
+        let mut possible_moves = Vec::new();
+        let current_state = self.board_state.clone();
+
+        (0..self.size * self.size).into_iter().for_each(|i| {
+            let coordinate = Coordinate::Index(i);
+            let new_position = current_state.add_stone(coordinate, colour);
+
+            if new_position.is_ok() {
+                possible_moves.push(coordinate);
+            }
+        });
+
+        possible_moves
+    }
+
     /// Chooses a random coordinate from the possible coordinate
-    pub fn play_random_move(&self, possible_moves: &Vec<Coordinate>) -> Coordinate {
+    pub fn play_random_move(&self, possible_moves: &[Coordinate]) -> Option<Coordinate> {
         if possible_moves.is_empty() {
-            println!("No possible moves");
-            return Coordinate::Index(self.size * self.size + 1);
+           return None;
         }
 
         let mut rng = self.rng.borrow_mut();
         let index: usize = rng.gen_range(0..possible_moves.len()); // chosen position
-        possible_moves[index]
+        Some(possible_moves[index])
     }
 
     /// Returns true if either black or white have possible moves to play
@@ -130,7 +149,10 @@ impl GameState {
         let white_moves = self.get_all_possible_moves(Colour::White).len() > 0;
 
         black_moves || white_moves
+    }
 
+    pub fn count_possible_moves(&self) {
+        println!("{}", self.get_all_possible_moves(self.turn).len());
     }
 
     pub fn random_game(&mut self) {
@@ -141,11 +163,63 @@ impl GameState {
                 self.play_turn(Turn::Pass);
             }
             else  {
-                self.play_turn(Turn::Move(self.play_random_move(&possible_moves)));
+                let random_move = self.play_random_move(&possible_moves);
+                if random_move.is_none() {
+                    self.play_turn(Turn::Pass);
+                }
+                self.play_turn(Turn::Move(random_move.unwrap()));
             }
         }
 
         println!("Game over");
+    }
+
+
+    pub fn random_completed_game(&mut self) {
+        println!("Playing random game (but like better than the other one)");
+
+        while !self.check_end() {
+            if self.board_state.check_all_important_points_played() {
+                // all important points are played for the given turn
+                self.play_turn(Turn::Pass);
+            } 
+
+            // else we need to play a random move
+
+            let possible_moves = self.get_all_possible_moves(self.turn);
+
+            if possible_moves.len() < 3 {
+                if possible_moves.is_empty() {
+                    self.play_turn(Turn::Resign);
+                } else {
+                    self.play_turn(Turn::Pass);
+                }
+            }
+
+            let random_move = self.play_random_move(&possible_moves);
+
+            match random_move {
+                Some(m) => self.play_turn(Turn::Move(m)),
+                None => self.play_turn(Turn::Pass),
+            }
+
+        }
+
+        println!("Game over - and should be like fairly reasonable.");
+        self.calculate_total_completed_score();
+    }
+
+
+    /// return true if the only moves to play are within a player's own territory
+    pub fn check_useful_points_played(&self) -> bool {
+        let colour = self.turn;
+        let grid = self.board_state.get_grid();
+        let max_moves = self.get_all_possible_moves(colour).len();
+        let territory = self.board_state.get_surrounded_area(&grid, colour);
+
+        println!("Max Moves: {} | Empty Territory {}", max_moves, territory);
+
+        return max_moves == territory
     }
 
     /// Plays a random move if possible
@@ -156,7 +230,7 @@ impl GameState {
         }
 
         let random_move = self.play_random_move(&possible_moves);
-        self.play_turn(Turn::Move(random_move));
+        self.play_turn(Turn::Move(random_move.unwrap()));
     }
 
     /// clamps the coordinate to be within the max size of the board
@@ -233,3 +307,9 @@ impl GameState {
         }
     }
 }
+
+impl GameState {
+    // Monte Carlo Tree search implementation
+
+}
+

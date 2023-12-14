@@ -2,8 +2,8 @@ use eframe::{egui, App, Frame, NativeOptions};
 use egui::Id;
 
 use crate::colour::Colour;
-use crate::{colour, BOARD_SIZE, coordinate};
-use crate:: coordinate::Coordinate;
+use crate::{colour, coordinate};
+use crate::coordinate::Coordinate;
 use crate::game_state::GameState;
 use crate::turn::Turn;
 
@@ -105,7 +105,7 @@ impl App for MyApp {
                 let coords = self.game.clamp_coordinate(i, j);
 
                 self.game.play_turn(Turn::Move(coords));
-                self.game.random_game();
+                self.game.random_completed_game();
             }
 
             if response.middle_clicked() {
@@ -141,7 +141,7 @@ impl App for MyApp {
             }
 
             if i.key_pressed(egui::Key::R) {
-                self.game = GameState::new(BOARD_SIZE);
+                self.game = GameState::new(self.game.size);
             }
 
             if i.key_pressed(egui::Key::P) {
@@ -150,15 +150,15 @@ impl App for MyApp {
             }
 
             if i.key_pressed(egui::Key::Space) {
-                println!("{:?}", self.game.board_state.check_all_important_points_played());
+                self.game.count_possible_moves();
             }
         });
     }
 }
 
-pub fn run() -> Result<(), eframe::Error> {
+pub fn run(size: usize) -> Result<(), eframe::Error> {
     let app = MyApp {
-        game: GameState::new(BOARD_SIZE),
+        game: GameState::new(size),
     };
 
     let native_options = NativeOptions {

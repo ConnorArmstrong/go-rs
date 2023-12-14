@@ -27,6 +27,14 @@ impl GroupState {
         }
     }
 
+    pub fn combine_groups(groups: &Vec<GroupState>) -> HashSet<Coordinate> {
+        let colour = groups[0].colour;
+        let points: HashSet<Coordinate> = HashSet::from_iter(groups.iter().flat_map(|group| group.points.iter().cloned()));
+        
+
+        points
+    }
+
     /// returns true if there are more than 0 liberties (calculated every time)
     pub fn check_liberties(&self, grid: &Vec<Colour>, board_size: usize) -> bool {
         let mut liberties: HashSet<Coordinate> = HashSet::new();
