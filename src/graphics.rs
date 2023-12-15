@@ -152,6 +152,10 @@ impl App for MyApp {
             if i.key_pressed(egui::Key::Space) {
                 self.game.count_possible_moves();
             }
+
+            if i.key_pressed(egui::Key::V) {
+                GameState::check_useful_points_played(&self.game.board_state, self.game.turn);
+            }
         });
     }
 }

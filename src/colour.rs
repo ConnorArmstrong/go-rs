@@ -29,7 +29,7 @@ impl Colour {
 pub enum Outcome {
     BlackWin,
     WhiteWin,
-    Draw,
+    Draw, // Not possible with komi
 }
 
 impl Outcome {

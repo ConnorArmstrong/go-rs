@@ -15,6 +15,8 @@ use crate::{board_state::BoardState, colour::Colour, tree::GameTree, coordinate:
 
 pub const AUTO_PLAY: bool = false;
 
+pub const _KOMI: f32 = 0.0;
+
 pub struct GameState {
     pub board_state: BoardState,
     pub turn: Colour,
@@ -230,17 +232,20 @@ impl GameState {
 
 
     /// return true if the only moves to play are within a player's own territory
-    pub fn check_useful_points_played(&self) -> bool {
-        let colour = self.turn;
-        let grid = self.board_state.get_grid();
-        let max_moves = self.get_all_possible_moves(colour).len();
-        let territory = self.board_state.get_surrounded_area(&grid, colour);
-
-        println!("Max Moves: {} | Empty Territory {}", max_moves, territory);
-
-        return max_moves == territory
+    /// also return false if there are dame points still left
+    pub fn check_useful_points_played(board: &BoardState, colour: Colour) -> bool {
+        let grid = board.get_grid();
+        
+        let all_possible_moves = GameState::get_all_possible_moves_for_board(board, colour); // generate all possible moves for this colour
+        let territory = board.get_territory(colour); // a vector of empty territoy groups
+        let coords: HashSet<Coordinate> = GroupState::combine_groups(&territory); // a hashset of coordinates that are in the territory
+    
+        let useful_moves = all_possible_moves.iter().filter(|&move_to_play| coords.contains(move_to_play)).count(); // the number of moves that are in the territory
+    
+        println!("Useful Moves: {} | All possible moves: {}", useful_moves, all_possible_moves.len());
+    
+        return useful_moves == all_possible_moves.len();
     }
-
 
 
     /// Plays a random move if possible
@@ -294,7 +299,7 @@ impl GameState {
     }
 
     /// calculate the score of the game assuming there are no dead stones
-    pub fn calculate_total_completed_score(&self) -> (Colour, usize) {
+    pub fn calculate_total_completed_score(&self) -> (Colour, f32) {
         // ie this just finds empty spots, assigns them to a big group
         // matches the groups to a colour and then sums up the empty spots
         // chinese scoring is empty spots + number of stones on the board
@@ -314,8 +319,8 @@ impl GameState {
         let white_area = self.board_state.get_surrounded_area(&grid, Colour::White);
 
         // Chinese scoring: empty spots + number of stones on the board
-        let black_score = black_area + black_stone_count;
-        let white_score = white_area + white_stone_count;
+        let black_score = (black_area + black_stone_count) as f32;
+        let white_score = (white_area + white_stone_count) as f32 + _KOMI;
 
         println!("Black Score: {}", black_score);
         println!("White Score: {}", white_score);
@@ -330,7 +335,13 @@ impl GameState {
 
     /// Let the MCTS know if the game is over
     pub fn is_game_over(board: &BoardState) -> bool {
-        todo!()
+        let first = board.check_all_important_points_played();
+
+        let black = GameState::check_useful_points_played(board, Colour::Black);
+        let white = GameState::check_useful_points_played(board, Colour::White);
+        
+
+        first && black && white
     }
 
     /// Let the MCTS know the outcome of the game
@@ -342,7 +353,42 @@ impl GameState {
     /// This is only called if it is determined there should be a move to play
     /// Passes and resignations are handled elsewhere
     pub fn decide_next_move(&self, colour: Colour) -> Coordinate {
-        todo!()
+        let mut mcts = MonteCarloSearch::new(self.board_state.clone(), colour);
+
+        // Parameters:
+        let max_time = Duration::from_millis(1500);
+        let max_iterations = 1500;
+        
+        // run for 1.5 seconds
+        let start = std::time::Instant::now();
+        let mut iterations = 0;
+
+        while (start.elapsed() < max_time) && (iterations < max_iterations) {
+            // Selection
+            let leaf_index = mcts.select_leaf(mcts.root);
+            
+            // Expansion
+            mcts.expand(leaf_index);
+
+            // Simulation
+            let outcome = mcts.simulate(leaf_index);
+
+            // BackPropagation
+            mcts.backpropagate(leaf_index, outcome);
+            
+            iterations += 1;
+        }
+
+        let best_child_index = mcts.nodes[mcts.root].children.iter()
+            .max_by(|&a, &b| {
+                let win_ratio_a = mcts.nodes[*a].wins as f64 / mcts.nodes[*a].visits as f64;
+                let win_ratio_b = mcts.nodes[*b].wins as f64 / mcts.nodes[*b].visits as f64;
+                win_ratio_a.partial_cmp(&win_ratio_b).unwrap()
+            })
+            .unwrap();
+
+        // Return the move that leads to the best child
+        mcts.nodes[*best_child_index].game_move.unwrap()
     }
 }
 
@@ -422,12 +468,9 @@ impl MonteCarloSearch {
     }
 
     /// Expansion phase of the MCTS
-/// Expansion phase of the MCTS
     fn expand(&mut self, node_index: usize) {
-        let (node_state, node_colour) = {
-            let node = &self.nodes[node_index];
-            (node.state.clone(), node.colour)
-        };
+        let node_state = self.nodes[node_index].state.clone();
+        let node_colour = self.nodes[node_index].colour;
 
         // Generate all possible moves from the current state
         let possible_moves = GameState::get_all_possible_moves_for_board(&node_state, node_colour);
@@ -446,13 +489,16 @@ impl MonteCarloSearch {
                 game_move: Some(game_move),
             };
             self.nodes.push(new_node);
-            self.nodes[node_index].children.push(self.nodes.len() - 1);
         }
+
+        // Update the children of the node
+        let children_ids: Vec<usize> = (node_index+1..self.nodes.len()).collect();
+        self.nodes[node_index].children = children_ids;
     }
 
     fn simulate(&self, node_index: usize) -> Outcome {
         let mut current_state = self.nodes[node_index].state.clone();
-        let colour = self.nodes[node_index].colour;
+        let mut colour = self.nodes[node_index].colour;
 
         // Loop until the game is over
         while !GameState::is_game_over(&current_state) {
@@ -462,6 +508,7 @@ impl MonteCarloSearch {
 
             // Apply the move to get the new state
             current_state = current_state.add_stone(game_move, colour).unwrap();
+            colour = colour.swap_turn();
         }
 
         // Return the outcome of the game
