@@ -77,7 +77,7 @@ impl GameTree {
 
     /// returns true if the game is over by resignation or agreement
     pub fn check_end(&self) -> bool {
-        if self.board_states.len() < 2 {
+        if self.board_states.len() < 3 {
             return false;
         }
     
