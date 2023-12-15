@@ -175,7 +175,7 @@ impl GameState {
     pub fn count_possible_moves(&self) {
         println!("{}", self.get_all_possible_moves(self.turn).len());
     }
-    
+
     pub fn random_completed_game(&mut self) {
         println!("Playing random game (but like better than the other one)");
 
@@ -232,7 +232,7 @@ impl GameState {
     pub fn auto_move(&mut self) {
         println!("Starting...");
 
-        if self.game_tree.get_length() < 35 {
+        if self.game_tree.get_length() < 30 {
             // generate a random move instead
             let possible_moves = self.get_all_possible_moves(self.turn);
             self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap())); 
@@ -368,14 +368,14 @@ impl GameState {
 
         // Parameters:
         let max_time = Duration::from_millis(60000);
-        let max_iterations = 1500;
+        let max_iterations = 999999;
         
         let start = std::time::Instant::now();
         let mut iterations = 0;
 
         println!("Starting MCTS with max_time: {:?}, max_iterations: {}", max_time, max_iterations);
 
-        while (start.elapsed() < max_time) && (iterations < max_iterations) {
+        while start.elapsed() < max_time && iterations < max_iterations {
             // Selection
             let leaf_index = mcts.select_leaf(mcts.root);
             
@@ -390,21 +390,36 @@ impl GameState {
             
             iterations += 1;
 
-            // Log the current iteration and the best move every 100 iterations
-            if iterations % 2 == 0 {
-                let best_child_index = mcts.nodes[mcts.root].children.iter()
-                .max_by(|&a, &b| {
-                    let uct_a = mcts.calculate_uct(*a, mcts.nodes[mcts.root].visits as f64);
-                    let uct_b = mcts.calculate_uct(*b, mcts.nodes[mcts.root].visits as f64);
-                    uct_a.partial_cmp(&uct_b).unwrap_or(std::cmp::Ordering::Equal)
-                })
-                .unwrap_or_else(|| {
-                    panic!("No children in the current node of the MCTS tree");
-                });
+            // Log the current iteration and the best move every 2 iterations
+            if iterations % 10 == 0 {
+                let root_node = &mcts.nodes[mcts.root];
+                let children = &root_node.children;
+
+                /* 
+                // Print the UCT values of all children
+                for &child_index in children {
+                    let child_node = &mcts.nodes[child_index];
+                    let uct = mcts.calculate_uct(child_index, root_node.visits as f64);
+                    println!("Child index: {}, Move: {:?}, UCT: {}", child_index, child_node.game_move, uct);
+                }
+                */
+
+                // Find the best child
+                let best_child_index = children.iter()
+                    .max_by(|&a, &b| {
+                        let uct_a = mcts.calculate_uct(*a, root_node.visits as f64);
+                        let uct_b = mcts.calculate_uct(*b, root_node.visits as f64);
+                        uct_a.partial_cmp(&uct_b).unwrap_or(std::cmp::Ordering::Equal)
+                    })
+                    .unwrap_or_else(|| {
+                        panic!("No children in the current node of the MCTS tree");
+                    });
 
                 println!("Iteration: {}, Best move: {:?}", iterations, mcts.nodes[*best_child_index].game_move);
             }
         }
+
+        println!("FINAL NUMBER OF ITERATIONS: {}", iterations);
 
         // After the MCTS loop
         let best_child_index = mcts.nodes[mcts.root].children.iter()
@@ -493,6 +508,11 @@ impl MonteCarloSearch {
     /// Calculate the UCT for the given node
     fn calculate_uct(&self, node_index: usize, log_parent_visits: f64) -> f64 {
         let node = &self.nodes[node_index];
+
+        if node.visits == 0 {
+            return f64::MAX;
+        }
+
         let win_ratio = node.wins as f64 / node.visits as f64;
         let exploration = 2.0 * (log_parent_visits / node.visits as f64).sqrt();
         win_ratio + exploration

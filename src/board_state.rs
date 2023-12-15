@@ -339,37 +339,32 @@ impl BoardState {
 
     /// Assuming game finished (and no dead stones) this will return how many empty spaces are enclosed by a particular colour
     pub fn get_surrounded_area(&self, grid: &Vec<Colour>, colour: Colour) -> usize {
-        // find all groups of that colour
-        // then do like a flood fill to find all empty squares
-
         let mut empty_locations: HashSet<Coordinate> = HashSet::new();
-        
-        // get all groups of the specific colour
         let groups: Vec<&GroupState> = self.group_map.values().filter(|&group| group.colour == colour).collect();
-
+    
         let mut queue: Vec<Coordinate> = groups
             .iter()
             .flat_map(|group| group.get_positions())
             .flat_map(|coordinate| BoardState::get_adjacent_indices(self.size, coordinate))
-            .filter(|&adjacent_coord| {
-                let index = adjacent_coord.get_index();
-                grid.get(index) == Some(&Colour::Empty)
-            })
             .collect();
-
+    
+        queue.retain(|&adjacent_coord| {
+            let index = adjacent_coord.get_index();
+            grid.get(index) == Some(&Colour::Empty)
+        });
+    
         while let Some(position) = queue.pop() {
-            if !empty_locations.contains(&position) && grid[position.get_index()] == Colour::Empty {
-                let neighbours: Vec<Coordinate> = BoardState::get_adjacent_indices(self.size, position)  //  only where empty
-                                                                .iter()
-                                                                .filter(|position| grid[position.get_index()] == Colour::Empty)
-                                                                .map(|coordinate| coordinate.to_owned())
-                                                                .collect();
+            if grid[position.get_index()] == Colour::Empty && empty_locations.insert(position) {
+                let neighbours: Vec<Coordinate> = BoardState::get_adjacent_indices(self.size, position)
+                    .iter()
+                    .filter(|position| grid[position.get_index()] == Colour::Empty)
+                    .cloned()
+                    .collect();
                 queue.extend(neighbours);
-                empty_locations.insert(position);
             }
         }
-
-        return empty_locations.len()
+    
+        empty_locations.len()
     }
 
     /// returns a list of all the empty territory surrounded by the given colour (in the form of a vec of GroupState)
@@ -410,47 +405,37 @@ impl BoardState {
 
     /// check if all empty spaces are only surrounded by one colour -> once this is true i can force the end of the game
     pub fn check_all_important_points_played(&self) -> bool {
-        // go through all empty points on the board 
-        // search through all adjacent points - and check if they are somehow adjacent to both a white and black stone
-        // if this is the case, return false
-        // else return true
-
         let grid = self.get_grid();
-
-        if grid.iter().filter(|colour| colour != &&Colour::Empty).collect::<Vec<&Colour>>().len() < 5 {
+    
+        if grid.iter().filter(|colour| colour != &&Colour::Empty).count() < 5 {
             return false;
         }
-
-        let mut groups: HashSet<GroupState> = HashSet::new();
-
+    
         let empty_points: Vec<Coordinate> = grid
             .iter()
             .enumerate()
             .filter(|(_, value)| value == &&Colour::Empty)
             .map(|(index, _)| Coordinate::Index(index))
             .collect();
-
-        for point in empty_points {
-            groups.insert(self.create_empty_group(point)); // creates the empty group containing all adjacent empty squares to this one
-        }
-
-        // /println!("Number of empty groups: {:?}", groups.len());
-
+    
+        let groups: HashSet<GroupState> = empty_points
+            .into_iter()
+            .map(|point| self.create_empty_group(point))
+            .collect();
+    
         for empty_group in groups {
-            // Check if adjacent points to this group are all of the same non-empty color
-            let mut adjacents: HashSet<Colour> = HashSet::new();
-
-            for empty_point in empty_group.get_positions() {
-                let a = BoardState::get_adjacent_indices(self.size, empty_point);
-                adjacents.extend(a.iter().map(|&coord| grid[coord.get_index()]));
-            }
-
+            let adjacents: HashSet<Colour> = empty_group.get_positions()
+                .into_iter()
+                .flat_map(|empty_point| BoardState::get_adjacent_indices(self.size, empty_point))
+                .map(|coord| grid[coord.get_index()])
+                .collect();
+    
             if adjacents.contains(&Colour::Black) && adjacents.contains(&Colour::White) {
-                return false; // There are both black and white stones adjacent to the group
+                return false;
             }
         }
-
-        true 
+    
+        true
     }
 
     /// Goes through all adjacent points to create a group of empty "territory"
