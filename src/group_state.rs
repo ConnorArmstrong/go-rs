@@ -28,7 +28,10 @@ impl GroupState {
     }
 
     pub fn combine_groups(groups: &Vec<GroupState>) -> HashSet<Coordinate> {
-        let colour = groups[0].colour;
+        let colour = match groups.first() {
+            Some(group) => group.colour,
+            None => Colour::Black,
+        };
         let points: HashSet<Coordinate> = HashSet::from_iter(groups.iter().flat_map(|group| group.points.iter().cloned()));
 
         points

@@ -3,7 +3,7 @@ use std::{collections::{HashMap, HashSet}, arch::x86_64};
 
 use rayon::iter::Empty;
 
-use crate::{colour::Colour, zobrist::ZobristTable, coordinate::{Coordinate, self}, fails::TurnErrors, group_state::GroupState};
+use crate::{colour::{Colour, self}, zobrist::ZobristTable, coordinate::{Coordinate, self}, fails::TurnErrors, group_state::GroupState};
 
 #[derive(Clone, Debug)]
 pub struct BoardState {
@@ -454,6 +454,7 @@ impl BoardState {
     }
 
     /// Goes through all adjacent points to create a group of empty "territory"
+    /// 
     /// This is a helper function for check_all_important_points_played() in order to build up the empty groups
     pub fn create_empty_group(&self, coordinate: Coordinate) -> GroupState {
         let mut points: HashSet<Coordinate> = HashSet::new();
@@ -470,5 +471,22 @@ impl BoardState {
             }
         }
         GroupState::from_empty_points(points)
+    }
+
+    /// Recreates a board state given a slice of colours by sequentially playing a given move.
+    /// 
+    /// This will only ever be called for scoring so there is no need to worry about ko's and previous board
+    /// iterations.
+    pub fn from_colours(colours: &[Colour], size: usize) -> Self {
+        let mut board_state = BoardState::new(size);
+
+        for (i, &colour) in colours.iter().enumerate() {
+            if colour != Colour::Empty {
+                let coordinate = Coordinate::Index(i);
+                board_state = board_state.add_stone(coordinate, colour).unwrap();
+            }
+        }
+
+        board_state
     }
 }

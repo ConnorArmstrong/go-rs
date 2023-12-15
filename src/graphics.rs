@@ -1,6 +1,7 @@
 use eframe::{egui, App, Frame, NativeOptions};
 use egui::Id;
 
+use crate::board_state::BoardState;
 use crate::colour::Colour;
 use crate::{colour, coordinate};
 use crate::coordinate::Coordinate;
@@ -154,7 +155,9 @@ impl App for MyApp {
             }
 
             if i.key_pressed(egui::Key::V) {
-                GameState::check_useful_points_played(&self.game.board_state, self.game.turn);
+                let colours = self.game.board_state.get_grid();
+                let new_state = BoardState::from_colours(&colours, self.game.size);
+                self.game.board_state = new_state;
             }
         });
     }
