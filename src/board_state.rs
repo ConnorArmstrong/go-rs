@@ -1,9 +1,7 @@
 // a purely function way to represent the board
-use std::{collections::{HashMap, HashSet}, arch::x86_64};
+use std::collections::{HashMap, HashSet};
 
-use rayon::iter::Empty;
-
-use crate::{colour::{Colour, self}, zobrist::ZobristTable, coordinate::{Coordinate, self}, fails::TurnErrors, group_state::GroupState};
+use crate::{colour::Colour, zobrist::ZobristTable, coordinate::Coordinate, fails::TurnErrors, group_state::GroupState};
 
 #[derive(Clone, Debug)]
 pub struct BoardState {
@@ -113,8 +111,6 @@ impl BoardState {
                 return Err(TurnErrors::Suicide);
             }
         }
-        
-        //self.debug_groups(&new_groups, &new_group_map);
 
         if self.zobrist_table.contains_position(&final_grid) { // check for repeated position/ko
             return Err(TurnErrors::Ko);
@@ -162,7 +158,7 @@ impl BoardState {
     }
 
     /// return a list of all current groups actually on the board
-    pub fn get_current_groups(&self) -> Vec<GroupState> {
+    pub fn _get_current_groups(&self) -> Vec<GroupState> {
         let current_groups: HashSet<GroupState> = self.groups.clone()
                                                     .into_iter()
                                                     .filter_map(|x| x.and_then(|key| self.group_map.get(&key)))
@@ -173,7 +169,7 @@ impl BoardState {
     }
 
     /// return if the group is currently on the board
-    pub fn contains(&self, group: &GroupState) -> bool {
+    pub fn _contains(&self, group: &GroupState) -> bool {
         let current_groups: HashSet<GroupState> = self.groups.clone()
                                                     .into_iter()
                                                     .filter_map(|x| x.and_then(|key| self.group_map.get(&key)))
@@ -183,7 +179,7 @@ impl BoardState {
     }
 
     /// returns the group at the given coordinate
-    pub fn find_group(&self, coordinate: Coordinate) -> Option<&GroupState> {
+    pub fn _find_group(&self, coordinate: Coordinate) -> Option<&GroupState> {
         let index = coordinate.get_index();
 
         if let Some(group_id) = self.groups[index] {
@@ -195,22 +191,6 @@ impl BoardState {
     /// returns true if the coordinate is empty
     pub fn check_empty(&self, coordinate: Coordinate) -> bool {
         self.groups[coordinate.get_index()].is_none()
-    }
-
-    /// returns a list of all adjacent same colour group's group_id
-    pub fn find_groups_to_merge(&self, coordinate: Coordinate, colour: Colour) -> Vec<usize> {
-        if colour == Colour::Empty {return vec![]}; // shouldnt be called on empty - if it is nothing happens as there is a length check
-        let mut id_set: HashSet<usize> = HashSet::new();
-
-        for point in BoardState::get_adjacent_indices(self.size, coordinate) {
-            if let Some(group_id) = self.groups[point.get_index()] {
-                if self.group_map.get(&group_id).unwrap().colour == colour {
-                    id_set.insert(group_id);
-                }
-            }
-        }
-
-        id_set.into_iter().collect()
     }
 
     /// return a list of adjacent same colour groups given a specific coordinate
@@ -248,26 +228,6 @@ impl BoardState {
             .collect();
     
         surrounding_groups.into_iter().collect()
-    }
-
-    /// return the new list of groups after checking to remove adjacent groups with 0 liberties
-    pub fn check_opposing_groups_liberties(total_groups: &Vec<Option<usize>>, map: &HashMap<usize, GroupState>, size: usize, groups: &Vec<&GroupState>) -> (Vec<Option<usize>>, bool) {
-        // for each group in groups
-        // update and check that the liberties are above 0 else remove them
-        let mut didnt_remove_groups: bool = true; // exists so i can check for suicide
-
-        let grid = BoardState::generate_grid_from_groups(total_groups, map, size);
-        let mut ids_to_remove: Vec<usize> = Vec::new();
-
-        for group in groups {
-            if !group.check_liberties(&grid, size) {
-                println!("removing group with id {}", group.get_id());
-                ids_to_remove.push(group.get_id());
-                didnt_remove_groups = false;
-            }
-        }
-
-        (BoardState::remove_groups(total_groups, ids_to_remove), didnt_remove_groups)
     }
 
     /// check and remove the opposing adjacent 0 liberty groups
@@ -310,7 +270,7 @@ impl BoardState {
         (BoardState::remove_groups(total_groups, groups_to_remove), didnt_remove_groups)
     }
 
-    pub fn debug_groups(&self, groups: &Vec<Option<usize>>, map: &HashMap<usize, GroupState>) {
+    pub fn _debug_groups(&self, groups: &Vec<Option<usize>>, map: &HashMap<usize, GroupState>) {
         let grid = BoardState::generate_grid_from_groups(groups, map, self.size);
         println!("-- Total Groups --");
         for (id, group) in map {
@@ -358,7 +318,7 @@ impl BoardState {
                 let neighbours: Vec<Coordinate> = BoardState::get_adjacent_indices(self.size, position)
                     .iter()
                     .filter(|position| grid[position.get_index()] == Colour::Empty)
-                    .cloned()
+                    .copied()
                     .collect();
                 queue.extend(neighbours);
             }
@@ -368,9 +328,7 @@ impl BoardState {
     }
 
     /// returns a list of all the empty territory surrounded by the given colour (in the form of a vec of GroupState)
-    pub fn get_territory(&self, colour: Colour) -> Vec<GroupState> {
-        let grid = self.get_grid();
-
+    pub fn get_territory(&self, grid: &[Colour], colour: Colour) -> Vec<GroupState> {
         let mut empty_groups: HashSet<GroupState> = HashSet::new();
 
         let empty_points: Vec<Coordinate> = grid // collects all the empty coordinates
@@ -381,7 +339,7 @@ impl BoardState {
             .collect();
 
         for position in empty_points {
-            empty_groups.insert(self.create_empty_group(position)); // inefficient implementation - this goes through every empty point and constructs a group from it
+            empty_groups.insert(self.create_empty_group(&grid, position)); // inefficient implementation - this goes through every empty point and constructs a group from it
         } // after this we now have every empty group on the board
 
         let mut surrounded_territory: Vec<GroupState> = Vec::new(); // surrounded territory of a particular colour
@@ -420,7 +378,7 @@ impl BoardState {
     
         let groups: HashSet<GroupState> = empty_points
             .into_iter()
-            .map(|point| self.create_empty_group(point))
+            .map(|point| self.create_empty_group(&grid, point))
             .collect();
     
         for empty_group in groups {
@@ -441,9 +399,8 @@ impl BoardState {
     /// Goes through all adjacent points to create a group of empty "territory"
     /// 
     /// This is a helper function for check_all_important_points_played() in order to build up the empty groups
-    pub fn create_empty_group(&self, coordinate: Coordinate) -> GroupState {
+    pub fn create_empty_group(&self, grid: &[Colour], coordinate: Coordinate) -> GroupState {
         let mut points: HashSet<Coordinate> = HashSet::new();
-        let grid = self.get_grid();
         let mut queue = vec![coordinate];
 
         while let Some(position) = queue.pop() {

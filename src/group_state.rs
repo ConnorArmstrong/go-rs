@@ -28,10 +28,6 @@ impl GroupState {
     }
 
     pub fn combine_groups(groups: &Vec<GroupState>) -> HashSet<Coordinate> {
-        let colour = match groups.first() {
-            Some(group) => group.colour,
-            None => Colour::Black,
-        };
         let points: HashSet<Coordinate> = HashSet::from_iter(groups.iter().flat_map(|group| group.points.iter().cloned()));
 
         points
@@ -66,7 +62,7 @@ impl GroupState {
     }
 
     /// returns true if the group contains the given position
-    pub fn contains(&self, position: Coordinate) -> bool {
+    pub fn _contains(&self, position: Coordinate) -> bool {
         self.points.contains(&position)
     }
 
@@ -82,7 +78,7 @@ impl GroupState {
         self.colour
     }
 
-    pub fn get_id(&self) -> usize {
+    pub fn _get_id(&self) -> usize {
         self.id
     }
 

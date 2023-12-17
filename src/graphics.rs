@@ -3,7 +3,7 @@ use egui::Id;
 
 use crate::board_state::BoardState;
 use crate::colour::Colour;
-use crate::{colour, coordinate};
+use crate::colour;
 use crate::coordinate::Coordinate;
 use crate::game_state::GameState;
 use crate::turn::Turn;

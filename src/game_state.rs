@@ -1,15 +1,14 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-use std::thread::{Thread, self};
 use std::time::Duration;
-use rand::Rng;
-use rand::rngs::ThreadRng;
+use rand::{Rng, SeedableRng};
+use rand::rngs::{ThreadRng, StdRng};
 use rand::seq::SliceRandom;
-use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+use rayon::iter::IntoParallelRefIterator;
+use rayon::prelude::ParallelIterator;
 
-use crate::colour::{Outcome, self};
-use crate::coordinate;
+use crate::colour::Outcome;
 use crate::group_state::GroupState;
 use crate::{board_state::BoardState, colour::Colour, tree::GameTree, coordinate::Coordinate, fails::TurnErrors, turn::Turn};
 
@@ -99,27 +98,8 @@ impl GameState {
         }
     }
 
-    /// returns a list of all possible moves for a given colour via brute force and paralelisation
-    pub fn get_all_possible_moves_fast(&self, colour: Colour) -> Vec<Coordinate> {
-        let possible_moves = Arc::new(Mutex::new(Vec::new()));
-        let current_state = self.board_state.clone();
 
-        (0..self.size * self.size).into_par_iter().for_each(|i| {
-            let coordinate = Coordinate::Index(i);
-            let new_position = current_state.add_stone(coordinate, colour);
-
-            match new_position {
-                Ok(_state) => {
-                    let mut moves = possible_moves.lock().unwrap();
-                    moves.push(coordinate);
-                }
-                Err(_) => {} // an error placing in that position so skip
-            }
-        });
-
-        Arc::try_unwrap(possible_moves).unwrap().into_inner().unwrap()
-    }
-
+    /// get all possible moves for the current board state and colour through brute force
     pub fn get_all_possible_moves(&self, colour: Colour) -> Vec<Coordinate> {
         let mut possible_moves = Vec::new();
         let current_state = self.board_state.clone();
@@ -136,7 +116,7 @@ impl GameState {
         possible_moves
     }
 
-    /// get all possible moves for a given board state and colour
+    /// get all possible moves for a given board state and colour using bruite force and paralellisation
     pub fn get_all_possible_moves_for_board(board: &BoardState, colour: Colour) -> Vec<Coordinate> {
         let mut possible_moves = Vec::new();
         let state = board.clone();
@@ -217,7 +197,7 @@ impl GameState {
         let grid = board.get_grid();
         
         let all_possible_moves = GameState::get_all_possible_moves_for_board(board, colour); // generate all possible moves for this colour
-        let territory = board.get_territory(colour); // a vector of empty territoy groups
+        let territory = board.get_territory(&grid, colour); // a vector of empty territoy groups
         let coords: HashSet<Coordinate> = GroupState::combine_groups(&territory); // a hashset of coordinates that are in the territory
     
         let useful_moves = all_possible_moves.iter().filter(|&move_to_play| coords.contains(move_to_play)).count(); // the number of moves that are in the territory
@@ -230,12 +210,10 @@ impl GameState {
 
     /// Plays a random move if possible
     pub fn auto_move(&mut self) {
-        println!("Starting...");
-
         if self.game_tree.get_length() < 30 {
             // generate a random move instead
             let possible_moves = self.get_all_possible_moves(self.turn);
-            self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap())); 
+            self.play_turn(Turn::Move(possible_moves.last().unwrap().clone())); 
             return;
         }
         let coordinate = self.decide_next_move(self.turn);
@@ -269,7 +247,7 @@ impl GameState {
             return; // no need to change the board position
         }
 
-        self.game_tree.move_forward();
+        let _ = self.game_tree.move_forward();
     }
 
     /// moves the game tree pointer forward one (called when mousewheel is scrolled down)
@@ -278,7 +256,7 @@ impl GameState {
             return; // no need to change the board position
         }
 
-        self.game_tree.move_back();
+        let _ = self.game_tree.move_back();
     }
 
     /// calculate the score of the game assuming there are no dead stones
@@ -368,7 +346,7 @@ impl GameState {
 
         // Parameters:
         let max_time = Duration::from_millis(60000);
-        let max_iterations = 999999;
+        let max_iterations = 1000;
         
         let start = std::time::Instant::now();
         let mut iterations = 0;
@@ -405,7 +383,7 @@ impl GameState {
                 */
 
                 // Find the best child
-                let best_child_index = children.iter()
+                let best_child_index = children.par_iter()
                     .max_by(|&a, &b| {
                         let uct_a = mcts.calculate_uct(*a, root_node.visits as f64);
                         let uct_b = mcts.calculate_uct(*b, root_node.visits as f64);
@@ -415,14 +393,14 @@ impl GameState {
                         panic!("No children in the current node of the MCTS tree");
                     });
 
-                println!("Iteration: {}, Best move: {:?}", iterations, mcts.nodes[*best_child_index].game_move);
+                println!("Time: {:?}, Iteration: {}, Best move: {:?}", start.elapsed(), iterations, mcts.nodes[*best_child_index].game_move);
             }
         }
 
         println!("FINAL NUMBER OF ITERATIONS: {}", iterations);
 
         // After the MCTS loop
-        let best_child_index = mcts.nodes[mcts.root].children.iter()
+        let best_child_index = mcts.nodes[mcts.root].children.par_iter()
         .max_by(|&a, &b| {
             let win_ratio_a = mcts.nodes[*a].wins as f64 / mcts.nodes[*a].visits as f64;
             let win_ratio_b = mcts.nodes[*b].wins as f64 / mcts.nodes[*b].visits as f64;
@@ -433,13 +411,14 @@ impl GameState {
         });
 
         // Return the best move
+        println!("Decided on Move at: {:?}", mcts.nodes[*best_child_index].game_move.unwrap());
         mcts.nodes[*best_child_index].game_move.unwrap()
     }
 }
 
 
 pub struct MonteCarloNode { // maybe?
-    pub state: BoardState, // the actual position of the board
+    pub state: Arc<BoardState>, // the actual position of the board
     pub parent: Option<usize>,
     pub children: Vec<usize>, // A list of the children's ids
     pub wins: usize, // how many wins this node leads to
@@ -452,14 +431,14 @@ pub struct MonteCarloNode { // maybe?
 pub struct MonteCarloSearch {
     pub nodes: Vec<MonteCarloNode>, // Where each index is the id of the node
     pub root: usize, // the starting position -> either an empty board or the current board
-    pub rng: RefCell<ThreadRng>, // for passing around the generator 
+    pub rng: Mutex<StdRng>, // for passing around the generator 
 }
 
 
 impl MonteCarloSearch {
     pub fn new(board: BoardState, colour: Colour) -> Self {
         let root_node = MonteCarloNode {
-            state: board,
+            state: board.into(),
             parent: None,
             children: Vec::new(),
             wins: 0,
@@ -472,11 +451,11 @@ impl MonteCarloSearch {
         MonteCarloSearch {
             nodes: vec![root_node],
             root: 0,
-            rng: RefCell::new(rand::thread_rng()),
+            rng: Mutex::new(StdRng::from_entropy()),
         }
     }
 
-    pub fn get_root(&self) -> &MonteCarloNode {
+    pub fn _get_root(&self) -> &MonteCarloNode {
         &self.nodes[self.root]
     }
 
@@ -520,7 +499,7 @@ impl MonteCarloSearch {
 
     /// Expansion phase of the MCTS
     fn expand(&mut self, node_index: usize) {
-        let node_state = self.nodes[node_index].state.clone();
+        let node_state = Arc::clone(&self.nodes[node_index].state);
         let node_colour = self.nodes[node_index].colour;
 
         // Generate all possible moves from the current state
@@ -528,7 +507,7 @@ impl MonteCarloSearch {
 
         // For each move, create a new node and add it to the tree
         for game_move in possible_moves {
-            let new_state = node_state.add_stone(game_move, node_colour).unwrap();
+            let new_state = Arc::new(node_state.add_stone(game_move, node_colour).unwrap());
             let new_node = MonteCarloNode {
                 state: new_state,
                 parent: Some(node_index),
@@ -568,7 +547,7 @@ impl MonteCarloSearch {
     
             // Apply the move to get the new state
             if let Some(game_move) = game_move {
-                current_state = current_state.add_stone(game_move, colour).unwrap();
+                current_state = current_state.add_stone(game_move, colour).unwrap().into();
             }
     
             // If there are two consecutive passes, the game is over
