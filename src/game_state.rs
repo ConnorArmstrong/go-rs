@@ -470,7 +470,7 @@ impl MonteCarloSearch {
     
         // Select the child with the highest UCT value
         let log_parent_visits = (node.visits as f64).ln();
-        let best_child_index = node.children.iter()
+        let best_child_index = node.children.par_iter()
             .max_by(|&a, &b| {
                 let uct_a = self.calculate_uct(*a, log_parent_visits);
                 let uct_b = self.calculate_uct(*b, log_parent_visits);
