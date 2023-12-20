@@ -1,11 +1,12 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
+use std::thread;
 use std::time::Duration;
 use rand::{Rng, SeedableRng};
 use rand::rngs::{ThreadRng, StdRng};
 use rand::seq::SliceRandom;
-use rayon::iter::IntoParallelRefIterator;
+use rayon::iter::{IntoParallelRefIterator, self, IntoParallelIterator};
 use rayon::prelude::ParallelIterator;
 
 use crate::colour::Outcome;
@@ -14,7 +15,7 @@ use crate::{board_state::BoardState, colour::Colour, tree::GameTree, coordinate:
 
 pub const AUTO_PLAY: bool = true;
 
-pub const _KOMI: f32 = 0.0;
+pub const KOMI: f32 = 0.5;
 
 pub struct GameState {
     pub board_state: BoardState,
@@ -89,6 +90,7 @@ impl GameState {
                 }
             },
             Turn::Pass => {
+                println!("{} has Passed.", self.turn.get_string());
                 self.swap_turn();
                 self.game_tree.add_move(turn, self.board_state.clone());
             },
@@ -97,7 +99,6 @@ impl GameState {
             }
         }
     }
-
 
     /// get all possible moves for the current board state and colour through brute force
     pub fn get_all_possible_moves(&self, colour: Colour) -> Vec<Coordinate> {
@@ -116,21 +117,18 @@ impl GameState {
         possible_moves
     }
 
-    /// get all possible moves for a given board state and colour using bruite force and paralellisation
+    /// Get all possible moves for a given board state and colour using brute force and parallelization
     pub fn get_all_possible_moves_for_board(board: &BoardState, colour: Colour) -> Vec<Coordinate> {
-        let mut possible_moves = Vec::new();
-        let state = board.clone();
-
-        (0..state.size * state.size).into_iter().for_each(|i| {
+        (0..board.size * board.size).into_par_iter().filter_map(|i| {
             let coordinate = Coordinate::Index(i);
-            let new_position = state.add_stone(coordinate, colour);
+            let new_position = board.add_stone(coordinate, colour);
 
             if new_position.is_ok() {
-                possible_moves.push(coordinate);
+                Some(coordinate)
+            } else {
+                None
             }
-        });
-
-        possible_moves
+        }).collect()
     }
 
     /// Chooses a random coordinate from the possible coordinate
@@ -213,8 +211,9 @@ impl GameState {
         if self.game_tree.get_length() < 30 {
             // generate a random move instead
             let possible_moves = self.get_all_possible_moves(self.turn);
-            self.play_turn(Turn::Move(possible_moves.last().unwrap().clone())); 
-            return;
+            //self.play_turn(Turn::Move(possible_moves.last().unwrap().clone())); 
+            //self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap()));
+            //return;
         }
         let coordinate = self.decide_next_move(self.turn);
         self.play_turn(Turn::Move(coordinate));
@@ -281,7 +280,7 @@ impl GameState {
 
         // Chinese scoring: empty spots + number of stones on the board
         let black_score = (black_area + black_stone_count) as f32;
-        let white_score = (white_area + white_stone_count) as f32 + _KOMI;
+        let white_score = (white_area + white_stone_count) as f32 + KOMI;
 
         //println!("Black Score: {}", black_score);
         //println!("White Score: {}", white_score);
@@ -296,12 +295,16 @@ impl GameState {
 
     /// Let the MCTS know if the game is over
     pub fn is_game_over(board: &BoardState) -> bool {
+        /* 
+        // returns true if therre are still points that dont belong to either territory
         //let first = board.check_all_important_points_played();
 
+        // this function returns true if the only moves to play are within a player's own territory 
         let black = GameState::check_useful_points_played(board, Colour::Black);
         let white = GameState::check_useful_points_played(board, Colour::White);
 
-        black && white
+        black && white */
+        board.check_all_important_points_played()
     }
 
     /// Let the MCTS know the outcome of the game
@@ -326,7 +329,7 @@ impl GameState {
 
         // Chinese scoring: empty spots + number of stones on the board
         let black_score = (black_area + black_stone_count) as f32;
-        let white_score = (white_area + white_stone_count) as f32 + _KOMI;
+        let white_score = (white_area + white_stone_count) as f32 + KOMI;
 
         if black_score > white_score {
             return Outcome::BlackWin;
@@ -342,62 +345,50 @@ impl GameState {
     /// This is only called if it is determined there should be a move to play
     /// Passes and resignations are handled elsewhere
     pub fn decide_next_move(&self, colour: Colour) -> Coordinate {
-        let mut mcts = MonteCarloSearch::new(self.board_state.clone(), colour);
+        let mcts = Arc::new(Mutex::new(MonteCarloSearch::new(self.board_state.clone(), colour)));
 
         // Parameters:
         let max_time = Duration::from_millis(60000);
-        let max_iterations = 1000;
+        let max_iterations = 2500;
+        let num_threads = 2;
         
         let start = std::time::Instant::now();
-        let mut iterations = 0;
+        let iterations = Arc::new(Mutex::new(0));
 
         println!("Starting MCTS with max_time: {:?}, max_iterations: {}", max_time, max_iterations);
 
-        while start.elapsed() < max_time && iterations < max_iterations {
-            // Selection
-            let leaf_index = mcts.select_leaf(mcts.root);
-            
-            // Expansion
-            mcts.expand(leaf_index);
+        while start.elapsed() < max_time && *iterations.lock().unwrap() < max_iterations {
+            let mcts_clone = mcts.clone();
+            let iterations_clone = iterations.clone();
 
-            // Simulation
-            let outcome = mcts.simulate(leaf_index);
+            // Parallelize the Simulation phase
+            (0..num_threads).into_par_iter().for_each(|_| {
+                let mut mcts_locked = mcts_clone.lock().unwrap();
 
-            // BackPropagation
-            mcts.backpropagate(leaf_index, outcome);
-            
-            iterations += 1;
+                // Selection
+                let leaf_index = mcts_locked.select_leaf(mcts_locked.root);
 
-            // Log the current iteration and the best move every 2 iterations
-            if iterations % 10 == 0 {
-                let root_node = &mcts.nodes[mcts.root];
-                let children = &root_node.children;
+                // Expansion
+                mcts_locked.expand(leaf_index);
 
-                /* 
-                // Print the UCT values of all children
-                for &child_index in children {
-                    let child_node = &mcts.nodes[child_index];
-                    let uct = mcts.calculate_uct(child_index, root_node.visits as f64);
-                    println!("Child index: {}, Move: {:?}, UCT: {}", child_index, child_node.game_move, uct);
-                }
-                */
+                // Simulation
+                let outcome = mcts_locked.simulate(leaf_index);
 
-                // Find the best child
-                let best_child_index = children.par_iter()
-                    .max_by(|&a, &b| {
-                        let uct_a = mcts.calculate_uct(*a, root_node.visits as f64);
-                        let uct_b = mcts.calculate_uct(*b, root_node.visits as f64);
-                        uct_a.partial_cmp(&uct_b).unwrap_or(std::cmp::Ordering::Equal)
-                    })
-                    .unwrap_or_else(|| {
-                        panic!("No children in the current node of the MCTS tree");
-                    });
+                // Backpropagation
+                mcts_locked.backpropagate(leaf_index, outcome);
 
-                println!("Time: {:?}, Iteration: {}, Best move: {:?}", start.elapsed(), iterations, mcts.nodes[*best_child_index].game_move);
-            }
+                // Increment iterations in a thread-safe way
+                let mut iter_locked = iterations_clone.lock().unwrap();
+                *iter_locked += 1;
+
+                //println!("Thread {:?} completed!", thread::current().id());
+            });
+            //println!("Completed {} iterations", *iterations.lock().unwrap());
         }
 
-        println!("FINAL NUMBER OF ITERATIONS: {}", iterations);
+        println!("FINAL NUMBER OF ITERATIONS: {} in {:?}", *iterations.lock().unwrap(), start.elapsed());
+
+        let mcts = mcts.lock().unwrap();
 
         // After the MCTS loop
         let best_child_index = mcts.nodes[mcts.root].children.par_iter()
@@ -493,7 +484,7 @@ impl MonteCarloSearch {
         }
 
         let win_ratio = node.wins as f64 / node.visits as f64;
-        let exploration = 2.0 * (log_parent_visits / node.visits as f64).sqrt();
+        let exploration = 2.0 * (log_parent_visits / node.visits as f64).sqrt() + 0.5;
         win_ratio + exploration
     }
 
@@ -503,7 +494,8 @@ impl MonteCarloSearch {
         let node_colour = self.nodes[node_index].colour;
 
         // Generate all possible moves from the current state
-        let possible_moves = GameState::get_all_possible_moves_for_board(&node_state, node_colour);
+        let mut possible_moves = GameState::get_all_possible_moves_for_board(&node_state, node_colour);
+        possible_moves.shuffle(&mut *self.rng.lock().unwrap());
 
         // For each move, create a new node and add it to the tree
         for game_move in possible_moves {

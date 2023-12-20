@@ -159,6 +159,10 @@ impl App for MyApp {
                 let new_state = BoardState::from_colours(&colours, self.game.size);
                 self.game.board_state = new_state;
             }
+
+            if i.key_pressed(egui::Key::T) {
+                (0..75).for_each(|_| self.game.play_turn(Turn::Move(self.game.decide_next_move(self.game.turn))));
+            }
         });
     }
 }

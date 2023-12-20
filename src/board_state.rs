@@ -1,6 +1,8 @@
 // a purely function way to represent the board
 use std::collections::{HashMap, HashSet};
 
+use rayon::iter::{IntoParallelRefIterator, ParallelIterator};
+
 use crate::{colour::Colour, zobrist::ZobristTable, coordinate::Coordinate, fails::TurnErrors, group_state::GroupState};
 
 #[derive(Clone, Debug)]
@@ -194,11 +196,12 @@ impl BoardState {
     }
 
     /// return a list of adjacent same colour groups given a specific coordinate
+/// return a list of adjacent same colour groups given a specific coordinate
     pub fn find_adjacent_groups<'a>(groups: &'a Vec<Option<usize>>, group_map: &'a HashMap<usize, GroupState>, coordinate: Coordinate, group_colour: Colour, size: usize) -> Vec<&'a GroupState> {
         let group_id = groups[coordinate.get_index()].expect("Group ID cannot be None");
         let group = group_map.get(&group_id).expect("Group not found in group_map");
-    
-        let positions: HashSet<Coordinate> = group
+
+        let surrounding_groups: HashSet<&GroupState> = group
             .get_positions()
             .iter()
             .flat_map(|point| BoardState::get_adjacent_indices(size, *point))
@@ -207,26 +210,13 @@ impl BoardState {
                 let index = groups[adjacent_point.get_index()]?;
                 let group_data = group_map.get(&index)?;
                 if group_data.get_colour() == group_colour {
-                    Some(adjacent_point)
+                    Some(group_data)
                 } else {
                     None
                 }
             })
             .collect();
-    
-        let surrounding_groups: HashSet<&GroupState> = positions
-            .iter()
-            .flat_map(|&position| {
-                let potential_group_id = groups[position.get_index()].expect("Group ID cannot be None");
-                let potential_group = group_map.get(&potential_group_id).expect("Group not found in group_map");
-                if potential_group.get_colour() == group.get_colour() {
-                    Some(potential_group)
-                } else {
-                    None
-                }
-            })
-            .collect();
-    
+
         surrounding_groups.into_iter().collect()
     }
 
@@ -364,36 +354,33 @@ impl BoardState {
     /// check if all empty spaces are only surrounded by one colour -> once this is true i can force the end of the game
     pub fn check_all_important_points_played(&self) -> bool {
         let grid = self.get_grid();
-    
-        if grid.iter().filter(|colour| colour != &&Colour::Empty).count() < 5 {
+        let mut non_empty_count = 0;
+        let mut empty_points = HashSet::new();
+
+        for (index, colour) in grid.iter().enumerate() {
+            match colour {
+                Colour::Empty => {
+                    empty_points.insert(self.create_empty_group(&grid, Coordinate::Index(index)));
+                }
+                _ => non_empty_count += 1,
+            }
+        }
+
+        if non_empty_count < 5 {
             return false;
         }
-    
-        let empty_points: Vec<Coordinate> = grid
-            .iter()
-            .enumerate()
-            .filter(|(_, value)| value == &&Colour::Empty)
-            .map(|(index, _)| Coordinate::Index(index))
-            .collect();
-    
-        let groups: HashSet<GroupState> = empty_points
-            .into_iter()
-            .map(|point| self.create_empty_group(&grid, point))
-            .collect();
-    
-        for empty_group in groups {
+
+        let is_all_played = empty_points.par_iter().all(|empty_group| {
             let adjacents: HashSet<Colour> = empty_group.get_positions()
                 .into_iter()
                 .flat_map(|empty_point| BoardState::get_adjacent_indices(self.size, empty_point))
                 .map(|coord| grid[coord.get_index()])
                 .collect();
     
-            if adjacents.contains(&Colour::Black) && adjacents.contains(&Colour::White) {
-                return false;
-            }
-        }
+            !(adjacents.contains(&Colour::Black) && adjacents.contains(&Colour::White))
+        });
     
-        true
+        is_all_played
     }
 
     /// Goes through all adjacent points to create a group of empty "territory"

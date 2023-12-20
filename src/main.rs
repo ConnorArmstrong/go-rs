@@ -1,4 +1,4 @@
-//#![allow(unused)]
+#![allow(unused)]
 //#![windows_subsystem = "windows"]
 
 use crate::coordinate::Coordinate;
