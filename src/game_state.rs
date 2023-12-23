@@ -22,7 +22,7 @@ pub struct GameState {
     pub game_tree: GameTree,
     rng: RefCell<ThreadRng>,
     pub size: usize,
-    mcts: Arc<Mutex<MonteCarloSearch>>, // for the MCTS
+    mcts: Arc<Mutex<MonteCarloSearch>>, // for the persistent mcts
 }
 
 impl GameState {
@@ -30,6 +30,8 @@ impl GameState {
         let mcts = Arc::new(Mutex::new(MonteCarloSearch::new(BoardState::new(board_size), Colour::Black)));
         let mut search = mcts.lock().unwrap();
         search.expand(0);
+
+        println!("{}", search.nodes.len());
 
 
         GameState {
@@ -77,7 +79,16 @@ impl GameState {
         }
 
         if AUTO_PLAY { // handle mcts tree pruning
+            let mut mcts = self.mcts.lock().unwrap();
+            mcts.expand(0); // Move this line before the next line
 
+            let root_node = &mcts.nodes[mcts.root];
+
+            let played_move_node_index = root_node.children.iter()
+                .find(|&&child_index| mcts.nodes[child_index].game_move == Some(coordinate))
+                .cloned()
+                .unwrap();
+            mcts.prune(played_move_node_index);
         }
 
         return true;
@@ -593,23 +604,19 @@ impl MonteCarloSearch {
             panic!("Error: Attempted to prune with a non-existent node index: {}", new_root);
         }
 
-        // Keep the nodes from 0 to new_root and discard the rest
-        self.nodes.truncate(new_root + 1);
+        // Keep the nodes from new_root onwards and discard the rest
+        self.nodes = self.nodes.split_off(new_root);
 
-        // Set the root to the new_root
-        self.root = new_root;
+        // Set the root to the new_root (which is now at index 0)
+        self.root = 0;
 
         // Adjust the ids, parents, and children of the remaining nodes
         for node in &mut self.nodes {
-            if node.id >= new_root {
-                node.id -= new_root;
-            }
+            node.id -= new_root;
             if let Some(parent) = node.parent {
-                if parent >= new_root {
-                    node.parent = Some(parent - new_root);
-                }
+                node.parent = Some(parent - new_root);
             }
-            node.children = node.children.iter().map(|&child| if child >= new_root { child - new_root } else { child }).collect();
+            node.children = node.children.iter().map(|&child| child - new_root).collect();
         }
     }
 }
