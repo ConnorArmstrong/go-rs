@@ -25,7 +25,6 @@ impl Colour {
     }
 }
 
-
 pub enum Outcome {
     BlackWin,
     WhiteWin,
@@ -33,7 +32,7 @@ pub enum Outcome {
 }
 
 impl Outcome {
-    pub fn get_string(&self) -> String {
+    pub fn _get_string(&self) -> String {
         match self {
             Outcome::BlackWin => String::from("Black Wins"),
             Outcome::WhiteWin => String::from("White Wins"),
@@ -41,7 +40,7 @@ impl Outcome {
         }
     }
 
-    pub fn determine(black_score: usize, white_score: usize) -> Outcome {
+    pub fn _determine(black_score: usize, white_score: usize) -> Outcome {
         if black_score > white_score {
             Outcome::BlackWin
         } else if white_score > black_score {

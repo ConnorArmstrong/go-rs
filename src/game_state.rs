@@ -1,19 +1,18 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
-use std::thread;
 use std::time::Duration;
 use rand::{Rng, SeedableRng};
 use rand::rngs::{ThreadRng, StdRng};
 use rand::seq::SliceRandom;
-use rayon::iter::{IntoParallelRefIterator, self, IntoParallelIterator};
+use rayon::iter::{IntoParallelRefIterator, IntoParallelIterator};
 use rayon::prelude::ParallelIterator;
 
 use crate::colour::Outcome;
 use crate::group_state::GroupState;
 use crate::{board_state::BoardState, colour::Colour, tree::GameTree, coordinate::Coordinate, fails::TurnErrors, turn::Turn};
 
-pub const AUTO_PLAY: bool = true;
+pub const AUTO_PLAY: bool = false;
 
 pub const KOMI: f32 = 0.5;
 
@@ -49,7 +48,6 @@ impl GameState {
             println!("Please reach the current position before playing a move");
             return false;
         }
-
 
         match new_position {
             Ok(state) => {
@@ -143,7 +141,7 @@ impl GameState {
     }
 
     /// Returns true if either black or white have possible moves to play
-    pub fn moves_to_play(&self) -> bool {
+    pub fn _moves_to_play(&self) -> bool {
         let black_moves = self.get_all_possible_moves(Colour::Black).len() > 0;
         let white_moves = self.get_all_possible_moves(Colour::White).len() > 0;
 
@@ -212,8 +210,8 @@ impl GameState {
             // generate a random move instead
             let possible_moves = self.get_all_possible_moves(self.turn);
             //self.play_turn(Turn::Move(possible_moves.last().unwrap().clone())); 
-            //self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap()));
-            //return;
+            self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap()));
+            return;
         }
         let coordinate = self.decide_next_move(self.turn);
         self.play_turn(Turn::Move(coordinate));
@@ -348,8 +346,8 @@ impl GameState {
         let mcts = Arc::new(Mutex::new(MonteCarloSearch::new(self.board_state.clone(), colour)));
 
         // Parameters:
-        let max_time = Duration::from_millis(60000);
-        let max_iterations = 2500;
+        let max_time = Duration::from_millis(300000);
+        let max_iterations = 25000;
         let num_threads = 2;
         
         let start = std::time::Instant::now();
@@ -402,7 +400,7 @@ impl GameState {
         });
 
         // Return the best move
-        println!("Decided on Move at: {:?}", mcts.nodes[*best_child_index].game_move.unwrap());
+        println!("Decided on Move at: {:?} with winrate: {} after {} visits", mcts.nodes[*best_child_index].game_move.unwrap(), mcts.nodes[*best_child_index].wins as f64 / mcts.nodes[*best_child_index].visits as f64, mcts.nodes[*best_child_index].visits);
         mcts.nodes[*best_child_index].game_move.unwrap()
     }
 }

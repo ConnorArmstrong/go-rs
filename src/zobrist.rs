@@ -1,6 +1,7 @@
-use crate::Colour;
 use rand::Rng;
 use std::collections::{HashMap, HashSet};
+
+use crate::colour::Colour;
 
 
 #[derive(Debug, Clone)]
@@ -24,7 +25,8 @@ impl ZobristTable {
         ZobristTable { map: table, visited: HashSet::new()  }
     }
 
-    fn zobrist_hash(&self, board: &[Colour]) -> u64 { // compute the zobrist hash of a given board
+    /// Compute the Zobrist hash of a given board
+    fn zobrist_hash(&self, board: &[Colour]) -> u64 { 
         let mut hash_value: u64 = 0;
     
         for (i, &colour) in board.iter().enumerate() {
@@ -36,12 +38,14 @@ impl ZobristTable {
         hash_value
     }
 
-    pub fn insert_position(&mut self, board: &[Colour]) { // get hash and add it to visited
+    /// Get the zobrist hash and insert it
+    pub fn insert_position(&mut self, board: &[Colour]) { 
         let hash_value = self.zobrist_hash(board);
         self.visited.insert(hash_value);
     }
 
-    pub fn contains_position(&self, board: &[Colour]) -> bool { // check if hash is in visited
+    /// Check if the board's zobrist hash exists
+    pub fn contains_position(&self, board: &[Colour]) -> bool { 
         let hash_value = self.zobrist_hash(board);
         self.visited.contains(&hash_value)
     }

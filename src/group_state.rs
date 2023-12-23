@@ -1,4 +1,4 @@
-use crate::{Colour, coordinate::Coordinate, board_state::BoardState};
+use crate::{colour::Colour, coordinate::Coordinate, board_state::BoardState};
 use std::{collections::HashSet, hash::Hash};
 
 #[derive(Clone, Debug)]

@@ -8,14 +8,14 @@ pub enum Turn {
 }
 
 impl Turn {
-    pub fn handle_turn(turn: Turn) -> Option<Coordinate> {
+    pub fn _handle_turn(turn: Turn) -> Option<Coordinate> {
         match turn {
             Turn::Move(coordinate) => Some(coordinate),
             _ => None,
         }
     }
 
-    pub fn into_turn(coordinate: Coordinate) -> Turn {
+    pub fn _into_turn(coordinate: Coordinate) -> Turn {
         Turn::Move(coordinate)
     }
 }

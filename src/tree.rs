@@ -42,7 +42,7 @@ impl GameTree {
     }
 
     
-    pub fn jump(&mut self, index: usize) -> Result<&(Turn, BoardState), TreeErrors> {
+    pub fn _jump(&mut self, index: usize) -> Result<&(Turn, BoardState), TreeErrors> {
         if index >= self.board_states.len() {
             return Err(TreeErrors::AboveMax);
         }
@@ -51,7 +51,7 @@ impl GameTree {
         return Ok(&self.board_states[self.pointer]);
     }
 
-    pub fn latest(&mut self) -> &(Turn, BoardState) {
+    pub fn _latest(&mut self) -> &(Turn, BoardState) {
         self.pointer = self.board_states.len() - 1;
 
         return &self.board_states[self.pointer];
@@ -119,6 +119,7 @@ impl GameTree {
         (colour, board.clone())
     }
 
+    /// Returns the last move if it is not a pass or resignation
     pub fn get_last_move(&self) -> Option<Coordinate> {
         let data = self.board_states[self.pointer].0;
 

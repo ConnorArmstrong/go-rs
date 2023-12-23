@@ -15,8 +15,8 @@ pub enum Coordinate { // to make it easier to handle the position of the board a
 }
 
 impl Coordinate {
+    /// convert position to index, or index to position
     pub fn into(&self) -> Coordinate {
-        // convert position to index, or index to position
         match self {
             Coordinate::Index(value) => {
                 // return position
@@ -43,21 +43,24 @@ impl Coordinate {
         }
     }
 
-    pub fn new_index(index: usize) -> Option<Coordinate> {
-        // returns an index if it is inbounds
+    /// returns an index if it is inbounds
+    pub fn _new_index(index: usize) -> Option<Coordinate> {
+
         if index < (BOARD_SIZE * BOARD_SIZE) {
            return Some(Coordinate::Index(index))
         }
         return None
     }
 
-    pub fn new_position(position: position) -> Option<Coordinate> {
+    /// returns a Position if it is inbounds
+    pub fn _new_position(position: position) -> Option<Coordinate> {
         if position.0 < BOARD_SIZE && position.1 < BOARD_SIZE {
             return Some(Coordinate::Position(position))
         }
         return None
     }
 
+    /// returns the Index of the Coordinate
     pub fn get_index(&self) -> index {
         let new = self.into_index();
         match new {
@@ -66,6 +69,7 @@ impl Coordinate {
         }
     }
 
+    /// Returns the Position of the Coordinate
     pub fn get_position(&self) -> position {
         let new = self.into_position();
         match new  {
