@@ -12,7 +12,7 @@ use crate::colour::Outcome;
 use crate::group_state::GroupState;
 use crate::{board_state::BoardState, colour::Colour, tree::GameTree, coordinate::Coordinate, fails::TurnErrors, turn::Turn};
 
-pub const AUTO_PLAY: bool = false;
+pub const AUTO_PLAY: bool = true;
 
 pub const KOMI: f32 = 0.5;
 
@@ -22,19 +22,25 @@ pub struct GameState {
     pub game_tree: GameTree,
     rng: RefCell<ThreadRng>,
     pub size: usize,
+    mcts: Arc<Mutex<MonteCarloSearch>>, // for the MCTS
 }
 
 impl GameState {
     pub fn new(board_size: usize) -> Self {
+        let mcts = Arc::new(Mutex::new(MonteCarloSearch::new(BoardState::new(board_size), Colour::Black)));
+        let mut search = mcts.lock().unwrap();
+        search.expand(0);
+
+
         GameState {
             board_state: BoardState::new(board_size),
             turn: Colour::Black,
             game_tree: GameTree::new(board_size),
             rng: RefCell::new(rand::thread_rng()),
             size: board_size,
+            mcts: mcts.clone(),
         }
     }
-
 
     /// Swap the colour
     pub fn swap_turn(&mut self) {
@@ -70,10 +76,8 @@ impl GameState {
             }
         }
 
-        if AUTO_PLAY {
-            if self.turn == Colour::White {
-                self.auto_move();
-            }
+        if AUTO_PLAY { // handle mcts tree pruning
+
         }
 
         return true;
@@ -85,6 +89,12 @@ impl GameState {
             Turn::Move(coordinate) => {
                 if self.play_move(coordinate) {
                     self.game_tree.add_move(turn, self.board_state.clone());
+                }
+
+                if AUTO_PLAY {
+                    if self.turn == Colour::White {
+                        self.auto_move();
+                    }
                 }
             },
             Turn::Pass => {
@@ -209,8 +219,8 @@ impl GameState {
         if self.game_tree.get_length() < 30 {
             // generate a random move instead
             let possible_moves = self.get_all_possible_moves(self.turn);
-            //self.play_turn(Turn::Move(possible_moves.last().unwrap().clone())); 
-            self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap()));
+            self.play_turn(Turn::Move(possible_moves.last().unwrap().clone())); 
+            //self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap()));
             return;
         }
         let coordinate = self.decide_next_move(self.turn);
@@ -331,10 +341,8 @@ impl GameState {
 
         if black_score > white_score {
             return Outcome::BlackWin;
-        } else if white_score > black_score {
-            return Outcome::WhiteWin;
         } else {
-            return Outcome::Draw;
+            return Outcome::WhiteWin;
         }
     }
         
@@ -342,11 +350,11 @@ impl GameState {
     /// 
     /// This is only called if it is determined there should be a move to play
     /// Passes and resignations are handled elsewhere
-    pub fn decide_next_move(&self, colour: Colour) -> Coordinate {
+     pub fn decide_next_move(&self, colour: Colour) -> Coordinate {
         let mcts = Arc::new(Mutex::new(MonteCarloSearch::new(self.board_state.clone(), colour)));
 
         // Parameters:
-        let max_time = Duration::from_millis(300000);
+        let max_time = Duration::from_millis(60000);
         let max_iterations = 25000;
         let num_threads = 2;
         
@@ -482,7 +490,7 @@ impl MonteCarloSearch {
         }
 
         let win_ratio = node.wins as f64 / node.visits as f64;
-        let exploration = 2.0 * (log_parent_visits / node.visits as f64).sqrt() + 0.5;
+        let exploration = 2.0 * (log_parent_visits / node.visits as f64).sqrt();
         win_ratio + exploration
     }
 
@@ -493,7 +501,7 @@ impl MonteCarloSearch {
 
         // Generate all possible moves from the current state
         let mut possible_moves = GameState::get_all_possible_moves_for_board(&node_state, node_colour);
-        possible_moves.shuffle(&mut *self.rng.lock().unwrap());
+        possible_moves.shuffle(&mut *self.rng.lock().unwrap()); // for now
 
         // For each move, create a new node and add it to the tree
         for game_move in possible_moves {
@@ -576,6 +584,32 @@ impl MonteCarloSearch {
         self.nodes[current_index].visits += 1;
         if self.nodes[current_index].colour == outcome.into_colour() {
             self.nodes[current_index].wins += 1;
+        }
+    }
+
+    /// Modify the tree to move the root to some new node 
+    pub fn prune(&mut self, new_root: usize) {
+        if new_root >= self.nodes.len() {
+            panic!("Error: Attempted to prune with a non-existent node index: {}", new_root);
+        }
+
+        // Keep the nodes from 0 to new_root and discard the rest
+        self.nodes.truncate(new_root + 1);
+
+        // Set the root to the new_root
+        self.root = new_root;
+
+        // Adjust the ids, parents, and children of the remaining nodes
+        for node in &mut self.nodes {
+            if node.id >= new_root {
+                node.id -= new_root;
+            }
+            if let Some(parent) = node.parent {
+                if parent >= new_root {
+                    node.parent = Some(parent - new_root);
+                }
+            }
+            node.children = node.children.iter().map(|&child| if child >= new_root { child - new_root } else { child }).collect();
         }
     }
 }

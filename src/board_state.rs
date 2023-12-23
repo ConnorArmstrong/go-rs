@@ -329,7 +329,7 @@ impl BoardState {
             .collect();
 
         for position in empty_points {
-            empty_groups.insert(self.create_empty_group(&grid, position)); // inefficient implementation - this goes through every empty point and constructs a group from it
+            empty_groups.insert(self.create_empty_group(&grid, position)); // inefficient implementation - this goes through every empty point and constructs a group from it's surrounding neighbours
         } // after this we now have every empty group on the board
 
         let mut surrounded_territory: Vec<GroupState> = Vec::new(); // surrounded territory of a particular colour
@@ -356,17 +356,22 @@ impl BoardState {
         let grid = self.get_grid();
         let mut non_empty_count = 0;
         let mut empty_points = HashSet::new();
+        let mut visited: HashSet<Coordinate> = HashSet::new();
 
         for (index, colour) in grid.iter().enumerate() {
             match colour {
                 Colour::Empty => {
-                    empty_points.insert(self.create_empty_group(&grid, Coordinate::Index(index)));
+                    if !visited.contains(&Coordinate::Index(index)) {
+                        let empty_group = self.create_empty_group(&grid, Coordinate::Index(index));
+                        visited.extend(empty_group.get_positions());
+                        empty_points.insert(empty_group);
+                    }
                 }
                 _ => non_empty_count += 1,
             }
         }
 
-        if non_empty_count < 5 {
+        if non_empty_count < 5 { // the game wont finish in 5 moves so this can be decided confidently
             return false;
         }
 

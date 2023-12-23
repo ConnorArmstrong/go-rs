@@ -28,7 +28,7 @@ impl Colour {
 pub enum Outcome {
     BlackWin,
     WhiteWin,
-    Draw, // Not possible with komi
+    _Draw, // Not possible with komi
 }
 
 impl Outcome {
@@ -36,7 +36,7 @@ impl Outcome {
         match self {
             Outcome::BlackWin => String::from("Black Wins"),
             Outcome::WhiteWin => String::from("White Wins"),
-            Outcome::Draw => String::from("Draw"),
+            Outcome::_Draw => String::from("Draw"),
         }
     }
 
@@ -46,7 +46,7 @@ impl Outcome {
         } else if white_score > black_score {
             Outcome::WhiteWin
         } else {
-            Outcome::Draw
+            Outcome::_Draw
         }
     }
 
@@ -54,7 +54,7 @@ impl Outcome {
         match self {
             Outcome::BlackWin => Colour::Black,
             Outcome::WhiteWin => Colour::White,
-            Outcome::Draw => Colour::Empty,
+            Outcome::_Draw => Colour::Empty,
         }
     }
 }
