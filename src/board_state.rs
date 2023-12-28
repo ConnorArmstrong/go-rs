@@ -317,6 +317,35 @@ impl BoardState {
         empty_locations.len()
     }
 
+    pub fn get_colour_territory(&self, grid: &Vec<Colour>) -> (usize, usize) {
+        let mut empty_locations: [HashSet<Coordinate>; 2] = [HashSet::new(), HashSet::new()];
+        let groups: Vec<&GroupState> = self.group_map.values().collect();
+    
+        let mut queue: Vec<(Colour, Coordinate)> = groups
+            .iter()
+            .flat_map(|group| group.get_positions().into_iter().map(move |pos| (group.colour, pos)))
+            .flat_map(|(colour, coordinate)| BoardState::get_adjacent_indices(self.size, coordinate).into_iter().map(move |pos| (colour, pos)))
+            .collect();
+    
+        queue.retain(|&(colour, adjacent_coord)| {
+            let index = adjacent_coord.get_index();
+            grid.get(index) == Some(&Colour::Empty)
+        });
+    
+        while let Some((colour, position)) = queue.pop() {
+            if grid[position.get_index()] == Colour::Empty && empty_locations[colour.into_usize() - 1].insert(position) {
+                let neighbours: Vec<(Colour, Coordinate)> = BoardState::get_adjacent_indices(self.size, position)
+                    .iter()
+                    .filter(|position| grid[position.get_index()] == Colour::Empty)
+                    .map(|&position| (colour, position))
+                    .collect();
+                queue.extend(neighbours);
+            }
+        }
+    
+        (empty_locations[0].len(), empty_locations[1].len())
+    }
+
     /// returns a list of all the empty territory surrounded by the given colour (in the form of a vec of GroupState)
     pub fn get_territory(&self, grid: &[Colour], colour: Colour) -> Vec<GroupState> {
         let mut empty_groups: HashSet<GroupState> = HashSet::new();

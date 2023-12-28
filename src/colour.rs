@@ -23,6 +23,14 @@ impl Colour {
             Colour::Empty => String::from("Empty"),
         }
     }
+
+    pub fn into_usize(&self) -> usize {
+        match self {
+            Colour::Black => 1,
+            Colour::White => 2,
+            Colour::Empty => 0,
+        }
+    }
 }
 
 pub enum Outcome {

@@ -12,7 +12,7 @@ mod game_state;
 mod group_state;
 mod turn;
 
-const BOARD_SIZE: usize = 9;
+const BOARD_SIZE: usize = 7;
 
 // potentially define MCTS parameters here:
 // ie iterations/time to iterate for

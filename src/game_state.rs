@@ -230,9 +230,9 @@ impl GameState {
         if self.game_tree.get_length() < 30 {
             // generate a random move instead
             let possible_moves = self.get_all_possible_moves(self.turn);
-            self.play_turn(Turn::Move(possible_moves.last().unwrap().clone())); 
+            //self.play_turn(Turn::Move(possible_moves.last().unwrap().clone())); 
             //self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap()));
-            return;
+            //return;
         }
         let coordinate = self.decide_next_move(self.turn);
         self.play_turn(Turn::Move(coordinate));
@@ -294,15 +294,11 @@ impl GameState {
         .fold((0, 0), |acc, counts| (acc.0 + counts.0, acc.1 + counts.1));
 
         // Count the number of empty intersections surrounded by each colour
-        let black_area = self.board_state.get_surrounded_area(&grid, Colour::Black);
-        let white_area = self.board_state.get_surrounded_area(&grid, Colour::White);
+        let (black_area, white_area) = self.board_state.get_colour_territory(&grid);
 
         // Chinese scoring: empty spots + number of stones on the board
         let black_score = (black_area + black_stone_count) as f32;
-        let white_score = (white_area + white_stone_count) as f32 + KOMI;
-
-        //println!("Black Score: {}", black_score);
-        //println!("White Score: {}", white_score);
+        let white_score = (white_area + white_stone_count) as f32 + KOMI; // komi is always some 0.5 value
 
         // Return the total scores for both colours
         if black_score > white_score {
@@ -361,7 +357,7 @@ impl GameState {
     /// 
     /// This is only called if it is determined there should be a move to play
     /// Passes and resignations are handled elsewhere
-     pub fn decide_next_move(&self, colour: Colour) -> Coordinate {
+    pub fn decide_next_move(&self, colour: Colour) -> Coordinate {
         let mcts = Arc::new(Mutex::new(MonteCarloSearch::new(self.board_state.clone(), colour)));
 
         // Parameters:
@@ -598,19 +594,15 @@ impl MonteCarloSearch {
         }
     }
 
-    /// Modify the tree to move the root to some new node 
+    /// Modify the MCTS tree to move the root to some new node
+    /// 
+    /// This also adjusts every child node's id, parent, and children
     pub fn prune(&mut self, new_root: usize) {
         if new_root >= self.nodes.len() {
             panic!("Error: Attempted to prune with a non-existent node index: {}", new_root);
         }
-
-        // Keep the nodes from new_root onwards and discard the rest
-        self.nodes = self.nodes.split_off(new_root);
-
-        // Set the root to the new_root (which is now at index 0)
-        self.root = 0;
-
-        // Adjust the ids, parents, and children of the remaining nodes
+    
+        // Adjust the ids, parents, and children of the nodes
         for node in &mut self.nodes {
             node.id -= new_root;
             if let Some(parent) = node.parent {
@@ -618,6 +610,12 @@ impl MonteCarloSearch {
             }
             node.children = node.children.iter().map(|&child| child - new_root).collect();
         }
+    
+        // Keep the nodes from new_root onwards and discard the rest
+        self.nodes = self.nodes.split_off(new_root);
+    
+        // Set the root to the new_root (which is now at index 0)
+        self.root = 0;
     }
 }
 
