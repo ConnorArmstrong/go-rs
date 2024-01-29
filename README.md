@@ -8,7 +8,7 @@ The plan is to include a bot based off of a montecarlo tree search that plays be
 
 To Do:
 
-- [] Persistant MCTS tree via pruning
-- [] Threading for non-blocking GUI
-- [] Self Play and Statistics
-- [] Command Line Arguments
+- [ ] Persistant MCTS tree via pruning
+- [ ] Threading for non-blocking GUI
+- [ ] Self Play and Statistics
+- [ ] Command Line Arguments
