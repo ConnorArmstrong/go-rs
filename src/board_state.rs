@@ -327,7 +327,7 @@ impl BoardState {
             .flat_map(|(colour, coordinate)| BoardState::get_adjacent_indices(self.size, coordinate).into_iter().map(move |pos| (colour, pos)))
             .collect();
     
-        queue.retain(|&(colour, adjacent_coord)| {
+        queue.retain(|&(_, adjacent_coord)| {
             let index = adjacent_coord.get_index();
             grid.get(index) == Some(&Colour::Empty)
         });

@@ -159,6 +159,10 @@ impl App for MyApp {
                 let new_state = BoardState::from_colours(&colours, self.game.size);
                 self.game.board_state = new_state;
             }
+
+            if i.key_pressed(egui::Key::C) {
+                self.game.weak_play();
+            }
         });
     }
 }

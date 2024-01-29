@@ -2,8 +2,8 @@ use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
-use rand::{Rng, SeedableRng};
-use rand::rngs::{ThreadRng, StdRng};
+use rand::Rng;
+use rand::rngs::ThreadRng;
 use rand::seq::SliceRandom;
 use rayon::iter::{IntoParallelRefIterator, IntoParallelIterator};
 use rayon::prelude::ParallelIterator;
@@ -12,7 +12,9 @@ use crate::colour::Outcome;
 use crate::group_state::GroupState;
 use crate::{board_state::BoardState, colour::Colour, tree::GameTree, coordinate::Coordinate, fails::TurnErrors, turn::Turn};
 
-pub const AUTO_PLAY: bool = true;
+pub const AUTO_PLAY: bool = false; // play against the MCTS
+pub const _SELF_PLAY: bool = false; // play against itself
+pub const _WEAK_PLAY: bool = false; // have the MCTS play against a random opponent
 
 pub const KOMI: f32 = 0.5;
 
@@ -78,18 +80,20 @@ impl GameState {
             }
         }
 
-        if AUTO_PLAY { // handle mcts tree pruning
+        /* TODO:
+                if AUTO_PLAY { // handle mcts tree pruning
             let mut mcts = self.mcts.lock().unwrap();
-            mcts.expand(0); // Move this line before the next line
+            mcts.expand(0); 
 
             let root_node = &mcts.nodes[mcts.root];
 
             let played_move_node_index = root_node.children.iter()
                 .find(|&&child_index| mcts.nodes[child_index].game_move == Some(coordinate))
                 .cloned()
-                .unwrap();
+                .expect("Didn't find the move");
             mcts.prune(played_move_node_index);
         }
+        */
 
         return true;
     }
@@ -107,6 +111,8 @@ impl GameState {
                         self.auto_move();
                     }
                 }
+
+                
             },
             Turn::Pass => {
                 println!("{} has Passed.", self.turn.get_string());
@@ -229,13 +235,50 @@ impl GameState {
     pub fn auto_move(&mut self) {
         if self.game_tree.get_length() < 30 {
             // generate a random move instead
-            let possible_moves = self.get_all_possible_moves(self.turn);
+            //let possible_moves = self.get_all_possible_moves(self.turn);
             //self.play_turn(Turn::Move(possible_moves.last().unwrap().clone())); 
             //self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap()));
             //return;
         }
         let coordinate = self.decide_next_move(self.turn);
         self.play_turn(Turn::Move(coordinate));
+    }
+
+    pub fn weak_play(&mut self) {
+        // Black is Random, White is MCTS
+        println!("Random vs MCTS starting");
+        let mut counter = 0;
+        loop {
+            if self.board_state.check_all_important_points_played() {
+                // all important points are played for the given turn
+                self.play_turn(Turn::Pass);
+            } 
+
+            // else we need to play a random move
+
+            if self.turn == Colour::Black {
+                let possible_moves = self.get_all_possible_moves(self.turn);
+                let random_move = self.play_random_move(&possible_moves);
+
+                match random_move {
+                    Some(m) => self.play_turn(Turn::Move(m)),
+                    None => self.play_turn(Turn::Pass),
+                }
+            } else {
+                self.auto_move();
+            }
+
+            if self.check_end() {
+                break;
+            }
+            counter += 1;
+
+            if counter > 30 {
+                break;
+            }
+        }
+
+        println!("Done after {} moves", counter);
     }
 
     /// clamps the coordinate to be within the max size of the board
@@ -361,7 +404,7 @@ impl GameState {
         let mcts = Arc::new(Mutex::new(MonteCarloSearch::new(self.board_state.clone(), colour)));
 
         // Parameters:
-        let max_time = Duration::from_millis(60000);
+        let max_time = Duration::from_millis(5000);
         let max_iterations = 25000;
         let num_threads = 2;
         
@@ -435,7 +478,6 @@ pub struct MonteCarloNode { // maybe?
 pub struct MonteCarloSearch {
     pub nodes: Vec<MonteCarloNode>, // Where each index is the id of the node
     pub root: usize, // the starting position -> either an empty board or the current board
-    pub rng: Mutex<StdRng>, // for passing around the generator 
 }
 
 
@@ -455,7 +497,6 @@ impl MonteCarloSearch {
         MonteCarloSearch {
             nodes: vec![root_node],
             root: 0,
-            rng: Mutex::new(StdRng::from_entropy()),
         }
     }
 
@@ -492,13 +533,13 @@ impl MonteCarloSearch {
     fn calculate_uct(&self, node_index: usize, log_parent_visits: f64) -> f64 {
         let node = &self.nodes[node_index];
 
-        if node.visits == 0 {
+        if node.visits == 0 { // make sure all nodes get explored at least once
             return f64::MAX;
         }
 
         let win_ratio = node.wins as f64 / node.visits as f64;
         let exploration = 2.0 * (log_parent_visits / node.visits as f64).sqrt();
-        win_ratio + exploration
+        win_ratio + (exploration/1.1)
     }
 
     /// Expansion phase of the MCTS
@@ -507,8 +548,8 @@ impl MonteCarloSearch {
         let node_colour = self.nodes[node_index].colour;
 
         // Generate all possible moves from the current state
-        let mut possible_moves = GameState::get_all_possible_moves_for_board(&node_state, node_colour);
-        possible_moves.shuffle(&mut *self.rng.lock().unwrap()); // for now
+        let possible_moves = GameState::get_all_possible_moves_for_board(&node_state, node_colour);
+        //possible_moves.shuffle(&mut *self.rng.lock().unwrap()); // for now - could implement a heuristic
 
         // For each move, create a new node and add it to the tree
         for game_move in possible_moves {
