@@ -240,8 +240,10 @@ impl GameState {
             //self.play_turn(Turn::Move(self.play_random_move(&possible_moves).unwrap()));
             //return;
         }
-        let coordinate = self.decide_next_move(self.turn);
-        self.play_turn(Turn::Move(coordinate));
+        match self.decide_next_move(self.turn) {
+            Some(coordinate) => self.play_turn(Turn::Move(coordinate)),
+            None => self.play_turn(Turn::Pass),
+        }
     }
 
     pub fn weak_play(&mut self) {
@@ -273,7 +275,7 @@ impl GameState {
             }
             counter += 1;
 
-            if counter > 30 {
+            if counter > 200 {
                 break;
             }
         }
@@ -400,7 +402,7 @@ impl GameState {
     /// 
     /// This is only called if it is determined there should be a move to play
     /// Passes and resignations are handled elsewhere
-    pub fn decide_next_move(&self, colour: Colour) -> Coordinate {
+    pub fn decide_next_move(&self, colour: Colour) -> Option<Coordinate> {
         let mcts = Arc::new(Mutex::new(MonteCarloSearch::new(self.board_state.clone(), colour)));
 
         // Parameters:
@@ -447,19 +449,21 @@ impl GameState {
         let mcts = mcts.lock().unwrap();
 
         // After the MCTS loop
-        let best_child_index = mcts.nodes[mcts.root].children.par_iter()
-        .max_by(|&a, &b| {
-            let win_ratio_a = mcts.nodes[*a].wins as f64 / mcts.nodes[*a].visits as f64;
-            let win_ratio_b = mcts.nodes[*b].wins as f64 / mcts.nodes[*b].visits as f64;
-            win_ratio_a.partial_cmp(&win_ratio_b).unwrap_or(std::cmp::Ordering::Equal)
-        })
-        .unwrap_or_else(|| {
-            panic!("No children in the current node of the MCTS tree");
-        });
+        let best_child_index_option = mcts.nodes[mcts.root].children.par_iter()
+    .max_by(|&a, &b| {
+        let win_ratio_a = mcts.nodes[*a].wins as f64 / mcts.nodes[*a].visits as f64;
+        let win_ratio_b = mcts.nodes[*b].wins as f64 / mcts.nodes[*b].visits as f64;
+        win_ratio_a.partial_cmp(&win_ratio_b).unwrap_or(std::cmp::Ordering::Equal)
+    });
 
         // Return the best move
-        println!("Decided on Move at: {:?} with winrate: {} after {} visits", mcts.nodes[*best_child_index].game_move.unwrap(), mcts.nodes[*best_child_index].wins as f64 / mcts.nodes[*best_child_index].visits as f64, mcts.nodes[*best_child_index].visits);
-        mcts.nodes[*best_child_index].game_move.unwrap()
+        if let Some(best_child_index) = best_child_index_option {
+            // Return the best move
+            println!("Decided on Move at: {:?} with winrate: {} after {} visits", mcts.nodes[*best_child_index].game_move.unwrap(), mcts.nodes[*best_child_index].wins as f64 / mcts.nodes[*best_child_index].visits as f64, mcts.nodes[*best_child_index].visits);
+            Some(mcts.nodes[*best_child_index].game_move.unwrap())
+        } else {
+            None
+        }
     }
 }
 
