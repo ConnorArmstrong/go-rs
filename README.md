@@ -2,7 +2,7 @@
 
 This is an implementation of the game of go in rust.
 
-The plan is to include a bot based off of a montecarlo tree search that plays better than me.
+Included is a Monte Carlo Tree Search bot that beats random opponents on small board sizes.
 
 
 
